@@ -9,6 +9,7 @@ import { createPartMesh } from '../render/partMesh.js';
 import { createCatalog, renderStats } from '../ui/workshopUi.js';
 import { createWorkshopSite } from '../render/workshopSite.js';
 import { state } from '../state.js';
+import { transition } from '../ui/fade.js';
 import missionData from '../data/missions.json';
 
 const SNAP_PX = 80; // how close (on screen) the cursor must be to a node to snap
@@ -342,7 +343,7 @@ export function createWorkshopScene() {
         if (b.dataset.act === 'undo') undo();
         if (b.dataset.act === 'clear' && design.stack.length) commit(() => (design.stack = []));
         if (b.dataset.act === 'reference') commit(() => (design = referenceDesign()));
-        if (b.dataset.act === 'next') toast('Boarding the rocket comes in the next build step.');
+        if (b.dataset.act === 'next') board();
       });
       ui.appendChild(bar);
 
@@ -365,6 +366,19 @@ export function createWorkshopScene() {
         }
       });
 
+      // Board: needs a capsule. Failing checks are allowed (failing teaches), but warn first.
+      let armed = 0;
+      const board = () => {
+        if (!design.stack.some((e) => e.part === 'capsule-2')) return toast('Add a Crew Capsule first: the crew needs somewhere to sit.');
+        let report;
+        try { report = analyzeDesign(design, parts); } catch { report = null; }
+        const failing = report ? Object.values(report.checks).filter((ok) => !ok).length : 1;
+        if (failing && performance.now() - armed > 4000) {
+          armed = performance.now();
+          return toast(`${failing} checklist item${failing > 1 ? 's are' : ' is'} not ready. Click Board again to go anyway.`);
+        }
+        transition(ctx.manager, 'boarding', {}, 700);
+      };
       const undo = () => {
         if (!history.length) return toast('Nothing to undo.');
         design = JSON.parse(history.pop());

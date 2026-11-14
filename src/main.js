@@ -6,6 +6,7 @@ import { createMissionSelectScene } from './scenes/missionSelect.js';
 import { createIntroScene } from './scenes/intro.js';
 import { createShowroomScene } from './scenes/showroom.js';
 import { createWorkshopScene } from './scenes/workshop.js';
+import { createBoardingScene } from './scenes/boarding.js';
 
 const manager = new SceneManager(
   document.getElementById('view'),
@@ -17,6 +18,7 @@ manager.register('missions', createMissionSelectScene);
 manager.register('intro', createIntroScene);
 
 manager.register('workshop', createWorkshopScene);
+manager.register('boarding', createBoardingScene);
 manager.register('showroom', createShowroomScene);
 
 if (import.meta.env.DEV) {
