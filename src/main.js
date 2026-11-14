@@ -1,6 +1,9 @@
 import { SceneManager } from './sceneManager.js';
 import { createFpsCounter } from './ui/fps.js';
 import { preloadModels } from './render/models.js';
+import { createTitleScene } from './scenes/title.js';
+import { createMissionSelectScene } from './scenes/missionSelect.js';
+import { createIntroScene } from './scenes/intro.js';
 import { createShowroomScene } from './scenes/showroom.js';
 
 const manager = new SceneManager(
@@ -8,14 +11,22 @@ const manager = new SceneManager(
   document.getElementById('ui'),
 );
 
+manager.register('title', createTitleScene);
+manager.register('missions', createMissionSelectScene);
+manager.register('intro', createIntroScene);
+// Placeholder until the Phase 3 workshop exists.
+manager.register('workshop', createShowroomScene);
 manager.register('showroom', createShowroomScene);
 
 if (import.meta.env.DEV) {
   manager.onFrame = createFpsCounter(document.getElementById('app'));
+  window.__astroni = manager; // for debugging in the browser console
 }
 
 // Use any GLB models dropped into /public/models/, primitives for the rest.
 await preloadModels();
 
-manager.go('showroom');
+// Dev shortcut: ?scene=intro jumps straight to a scene.
+const start = import.meta.env.DEV && new URLSearchParams(location.search).get('scene');
+manager.go(start && manager.factories.has(start) ? start : 'title');
 manager.start();

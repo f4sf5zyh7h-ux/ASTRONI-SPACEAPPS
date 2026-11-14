@@ -1,0 +1,14 @@
+{
+  "source": "NASA Orbital Debris Program Office (ODPO) FAQ",
+  "url": "https://orbitaldebris.jsc.nasa.gov/faq/",
+  "accessed": "2026-11-14",
+  "verified": true,
+  "facts": {
+    "averageImpactSpeedKms": 10,
+    "averageImpactSpeedQuote": "Orbital debris strikes other space objects at an average relative speed of approximately ... 10 kilometers per second.",
+    "leoDebrisSpeedKms": [7, 8],
+    "trackedAboveCm": 10,
+    "millimetreSizedPieces": "an estimated 100 million"
+  },
+  "notes": "The FAQ's mph figure next to 10 km/s is a typo on the page; only the km/s value is used. The bullet comparison in the intro is ours (rifle bullets ~1 km/s), not from NASA."
+}
