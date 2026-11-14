@@ -5,6 +5,7 @@ import { createTitleScene } from './scenes/title.js';
 import { createMissionSelectScene } from './scenes/missionSelect.js';
 import { createIntroScene } from './scenes/intro.js';
 import { createShowroomScene } from './scenes/showroom.js';
+import { createWorkshopScene } from './scenes/workshop.js';
 
 const manager = new SceneManager(
   document.getElementById('view'),
@@ -14,8 +15,8 @@ const manager = new SceneManager(
 manager.register('title', createTitleScene);
 manager.register('missions', createMissionSelectScene);
 manager.register('intro', createIntroScene);
-// Placeholder until the Phase 3 workshop exists.
-manager.register('workshop', createShowroomScene);
+
+manager.register('workshop', createWorkshopScene);
 manager.register('showroom', createShowroomScene);
 
 if (import.meta.env.DEV) {

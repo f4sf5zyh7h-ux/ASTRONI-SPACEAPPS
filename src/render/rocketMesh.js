@@ -33,6 +33,7 @@ export function buildRocket(design, parts) {
         ro.rotation.y = a;
         ro.position.set(Math.cos(a) * hullR, ry, -Math.sin(a) * hullR);
         ro.userData.index = i;
+        ro.userData.radial = r.part; // so the workshop can remove this side part
         group.add(ro);
       }
     }
