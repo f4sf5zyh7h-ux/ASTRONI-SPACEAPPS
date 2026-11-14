@@ -62,7 +62,9 @@ function buildInside(casing, inside, parts) {
     if (c.engines?.count) {
       const eng = parts.get(c.engines.part);
       const empties = [];
-      for (let k = 1; k <= c.engines.count; k++) {
+      // The L plate model has 9 positions; a 5-engine set uses the centre + the 4 on the axes.
+      const names = c.engines.count === 5 ? [1, 2, 4, 6, 8] : Array.from({ length: c.engines.count }, (_, k) => k + 1);
+      for (const k of names) {
         const e = obj.getObjectByName(`engine-${k}`);
         if (e) empties.push([e.position.x, e.position.z]);
       }
@@ -100,13 +102,14 @@ function engine(part) {
 export function engineLayout(count, mountRadius) {
   if (count <= 1) return [[0, 0]];
   const ringR = mountRadius * 0.68;
-  const ring = count === 9 ? 8 : count;
+  const centred = count === 9 || count === 5; // centre engine + a ring
+  const ring = centred ? count - 1 : count;
   const pts = [];
   for (let i = 0; i < ring; i++) {
     const a = (i / ring) * Math.PI * 2;
     pts.push([Math.cos(a) * ringR, Math.sin(a) * ringR]);
   }
-  if (count === 9) pts.unshift([0, 0]);
+  if (centred) pts.unshift([0, 0]);
   return pts;
 }
 
@@ -151,7 +154,7 @@ function stackPart(part, entry, parts) {
   const rT = radius(part.sizeTop ?? part.sizeBottom);
   const h = part.height;
 
-  switch (part.category === 'tanks' ? 'tank' : part.id.replace(/-[SML]$/, '')) {
+  switch (part.category === 'tanks' ? 'tank' : part.id.replace(/-[smlSML]$/, '')) {
     case 'tank':
       g.add(mesh(cyl(rT, rB, h), MAT.hull));
       g.add(mesh(cyl(rT * 1.01, rB * 1.01, 0.3), MAT.metal, h * 0.5 - 0.15));

@@ -2,9 +2,9 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { parts, DIAMETER } from '../data/catalog.js';
 import { casingDesign, standardCargo } from '../data/designs.js';
-import { analyzeDesign } from '../physics/rocket.js';
+import { analyzeDesign, radialSlots, sizesOf } from '../physics/rocket.js';
 import { simulateMission, missionLegs } from '../physics/mission.js';
-import { buildRocket } from '../render/rocketMesh.js';
+import { buildRocket, slotAngle } from '../render/rocketMesh.js';
 import { createPartMesh } from '../render/partMesh.js';
 import { createCatalog, renderStats } from '../ui/workshopUi.js';
 import { createWorkshopSite } from '../render/workshopSite.js';
@@ -13,7 +13,6 @@ import { transition } from '../ui/fade.js';
 import missionData from '../data/missions.json';
 
 const SNAP_PX = 80; // how close (on screen) the cursor must be to a node to snap
-const RADIAL_ANGLE = Math.PI / 4; // first side part sits here (matches rocketMesh)
 
 const hullRadius = (p) => Math.max(DIAMETER[p.sizeTop] ?? 0, DIAMETER[p.sizeBottom] ?? 0) / 2 || 0.6;
 /** Stack parts big enough to carry side parts. */
@@ -129,17 +128,17 @@ export function createWorkshopScene() {
       st.forEach((e, i) => {
         const p = parts.get(e.part);
         if (!isBody(p)) return;
+        // Only where the side slots are still free (no overlapping side parts).
+        const groups = [...(e.radial ?? []), { part: part.id, count: symmetry }];
+        const layout = radialSlots(groups, parts);
+        if (!layout) return;
         const r = hullRadius(p);
-        const y = site.base + objs[i].position.y + p.height / 2;
+        const angle = slotAngle(layout[layout.length - 1].slots[0]);
+        const y = site.base + objs[i].position.y + (part.role === 'fin' ? part.height / 2 + 0.3 : p.height / 2);
         nodes.push({
-          kind: 'radial', r, angle: RADIAL_ANGLE,
-          pos: new THREE.Vector3(Math.cos(RADIAL_ANGLE) * r, y, -Math.sin(RADIAL_ANGLE) * r),
-          apply: () => {
-            e.radial ??= [];
-            const same = e.radial.find((g) => g.part === part.id);
-            if (same) same.count = Math.min(8, same.count + symmetry);
-            else e.radial.push({ part: part.id, count: symmetry });
-          },
+          kind: 'radial', r, angle,
+          pos: new THREE.Vector3(Math.cos(angle) * r, y, -Math.sin(angle) * r),
+          apply: () => { e.radial = groups; },
         });
       });
       return nodes;
@@ -149,15 +148,21 @@ export function createWorkshopScene() {
     if (n === 0) {
       nodes.push({ kind: 'stack', r: (DIAMETER[part.sizeBottom] ?? 2.5) / 2, pos: new THREE.Vector3(0, site.base, 0), apply: () => st.push({ part: part.id }) });
     }
+    const flips = part.id.startsWith('adapter') ? [false, true] : [false]; // adapters work either way up
     for (let k = 0; k <= n && n > 0; k++) {
-      const above = k > 0 ? parts.get(st[k - 1].part) : null;
-      const below = k < n ? parts.get(st[k].part) : null;
-      const fitsAbove = !above || (above.sizeBottom && above.sizeBottom === part.sizeTop);
-      const fitsBelow = !below || (below.sizeTop && part.sizeBottom === below.sizeTop);
-      if (!fitsAbove || !fitsBelow) continue;
-      const y = site.base + (k === 0 ? rocket.height : objs[k - 1].position.y);
-      const r = Math.max(above ? hullRadius(above) : 0, below ? hullRadius(below) : 0);
-      nodes.push({ kind: 'stack', r, pos: new THREE.Vector3(0, y, 0), apply: () => st.splice(k, 0, { part: part.id }) });
+      const aboveE = k > 0 ? st[k - 1] : null;
+      const belowE = k < n ? st[k] : null;
+      const above = aboveE && sizesOf(aboveE, parts.get(aboveE.part));
+      const below = belowE && sizesOf(belowE, parts.get(belowE.part));
+      for (const flip of flips) {
+        const me = sizesOf({ flip }, part);
+        const fitsAbove = !above || (above.bottom && above.bottom === me.top);
+        const fitsBelow = !below || (below.top && me.bottom === below.top);
+        if (!fitsAbove || !fitsBelow) continue;
+        const y = site.base + (k === 0 ? rocket.height : objs[k - 1].position.y);
+        const r = Math.max(aboveE ? hullRadius(parts.get(aboveE.part)) : 0, belowE ? hullRadius(parts.get(belowE.part)) : 0);
+        nodes.push({ kind: 'stack', r, pos: new THREE.Vector3(0, y, 0), apply: () => st.splice(k, 0, flip ? { part: part.id, flip: true } : { part: part.id }) });
+      }
     }
     // Engines can also go into an engine mount's cluster.
     if (part.category === 'engines') {
@@ -176,11 +181,12 @@ export function createWorkshopScene() {
         const plate = e.inside?.[0];
         const pp = plate && parts.get(plate.part);
         if (pp?.role !== 'thrust-plate' || SIZE_RANK[part.sizeTop] > SIZE_RANK[pp.size]) return;
-        if (plate.engines && (plate.engines.part !== part.id || plate.engines.count >= pp.engineCapacity)) return;
+        if (plate.engines) return; // one full set per plate
         nodes.push({
           kind: 'engine', r: 0.6,
           pos: new THREE.Vector3(0, site.base + objs[i].position.y - 0.4, 0),
-          apply: () => { plate.engines = plate.engines ? { ...plate.engines, count: plate.engines.count + 1 } : { part: part.id, count: 1 }; },
+          // Fixed sets keep the thrust centred: S plate 1 engine, M plate 3, L plate 5.
+          apply: () => { plate.engines = { part: part.id, count: pp.engineCapacity }; },
         });
       });
     }
@@ -190,13 +196,15 @@ export function createWorkshopScene() {
   /** Plain-English reason a part has nowhere to attach, naming the adapter that would help. */
   const SIZE_NAME = { S: 'small (1.25 m)', M: 'medium (2.5 m)', L: 'large (3.75 m)' };
   const whyNoFit = (part) => {
-    if (part.radial) return `Side parts go on tanks or modules. Add a tank or module first.`;
+    if (part.radial) return design.stack.some((e) => isBody(parts.get(e.part)))
+      ? `No free side slots for ${symmetry} × ${part.name}. Try ×1 or ×2, or remove a side part (right-click).`
+      : 'Side parts go on casings or modules. Add one first.';
     const top = parts.get(design.stack[0]?.part);
     if (!top) return `Nowhere for the ${part.name} to fit yet.`;
     if (!top.sizeTop) return `Nothing can go on top of the ${top.name}. Remove it or insert below it.`;
     const want = part.sizeBottom;
     const have = top.sizeTop;
-    const adapter = { 'L>M': 'Adapter L→M', 'M>S': 'Adapter M→S' }[`${have}>${want}`];
+    const adapter = { 'L>M': 'Adapter L→M', 'M>S': 'Adapter M→S', 'M>L': 'Adapter L→M (it flips upside down)', 'S>M': 'Adapter M→S (it flips upside down)' }[`${have}>${want}`];
     return `The ${part.name} needs a ${SIZE_NAME[want]} part under it, but your rocket's top is ${SIZE_NAME[have]}.` +
       (adapter ? ` Add an ${adapter} (Structure tab) first.` : ' Try a different size of part.');
   };
@@ -308,7 +316,7 @@ export function createWorkshopScene() {
     const entry = design.stack[o.userData.index];
     commit(() => {
       if (o.userData.radial) {
-        entry.radial = entry.radial.filter((g) => g.part !== o.userData.radial);
+        entry.radial = entry.radial.filter((g, gi) => gi !== o.userData.group);
         if (!entry.radial.length) delete entry.radial;
       } else if (entry.engines) {
         // Engine mounts lose one engine per click, then the mount itself.
@@ -317,16 +325,9 @@ export function createWorkshopScene() {
       } else if (entry.inside?.length) {
         // Casings empty out first: engines one at a time, then internals from the top down.
         const plate = entry.inside[0];
-        if (o.userData.hitEngine && plate.engines) {
-          plate.engines.count -= 1;
-          if (plate.engines.count <= 0) delete plate.engines;
-        } else {
-          const top = entry.inside[entry.inside.length - 1];
-          if (top === plate && plate.engines) {
-            plate.engines.count -= 1;
-            if (plate.engines.count <= 0) delete plate.engines;
-          } else entry.inside.pop();
-        }
+        const top = entry.inside[entry.inside.length - 1];
+        if (plate.engines && (o.userData.hitEngine || top === plate)) delete plate.engines; // the whole set
+        else entry.inside.pop();
         if (!entry.inside.length) delete entry.inside;
       } else {
         design.stack.splice(o.userData.index, 1);

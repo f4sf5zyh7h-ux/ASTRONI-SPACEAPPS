@@ -50,12 +50,43 @@ export function validateInside(casing, inside, parts) {
     if (ip.role === 'thrust-plate' && k !== 0) errors.push(`The ${ip.name} must be at the bottom of its casing so the engines can hang out`);
     if (c.engines) {
       const eng = parts.get(c.engines.part);
-      if (c.engines.count > ip.engineCapacity) errors.push(`${ip.name} holds at most ${ip.engineCapacity} engines`);
+      // Fixed engine sets keep the thrust centred: S plate 1, M plate 3, L plate 5.
+      if (c.engines.count !== ip.engineCapacity) errors.push(`${ip.name} needs exactly ${ip.engineCapacity} engine${ip.engineCapacity > 1 ? 's' : ''} so the thrust stays centred`);
       if (eng && SIZE_RANK[eng.sizeTop] > SIZE_RANK[ip.size]) errors.push(`${eng.name} is too big for the ${ip.name}`);
     }
   });
   if (height > casing.interior.height + 1e-6) errors.push(`${casing.name} holds ${casing.interior.height} m but its contents are ${height.toFixed(1)} m tall`);
   return errors;
+}
+
+/** Top/bottom size of a stack entry. Adapters can be flipped (entry.flip) to join a big part on top of a small one. */
+export function sizesOf(entry, part) {
+  return entry?.flip ? { top: part.sizeBottom, bottom: part.sizeTop } : { top: part.sizeTop, bottom: part.sizeBottom };
+}
+
+const SLOTS = 8; // side positions around each body part, per height band
+
+/**
+ * Where each side-part group sits around its body part, without overlaps: 8 slots in a ring,
+ * fins on a low ring, everything else at mid height. A group of n parts takes n evenly spaced
+ * slots. Returns [{ band, slots: [...] }] per group, or null if something doesn't fit.
+ */
+export function radialSlots(radial, parts) {
+  const used = { low: new Set(), mid: new Set() };
+  const out = [];
+  for (const g of radial ?? []) {
+    const band = parts.get(g.part)?.role === 'fin' ? 'low' : 'mid';
+    const step = Math.max(1, Math.floor(SLOTS / g.count));
+    let found = null;
+    for (let o = 0; o < step && !found; o++) {
+      const s = Array.from({ length: g.count }, (_, k) => (o + k * step) % SLOTS);
+      if (s.every((x) => !used[band].has(x)) && new Set(s).size === s.length) found = s;
+    }
+    if (!found) return null;
+    found.forEach((x) => used[band].add(x));
+    out.push({ band, slots: found });
+  }
+  return out;
 }
 
 /** Stacking rules: neighbours share a diameter, nothing hangs below an engine, mounts have room. */
@@ -66,13 +97,17 @@ export function validateStack(design, parts) {
     const p = parts.get(entry.part);
     if (!p) { errors.push(`Unknown part "${entry.part}"`); continue; }
     if (p.radial) errors.push(`${p.name} is a side-mounted part and can't go in the main stack`);
+    if (entry.radial?.length && !radialSlots(entry.radial, parts)) errors.push(`Too many side parts on the ${p.name}: they would overlap`);
 
-    const below = stack[i + 1] && parts.get(stack[i + 1].part);
+    const belowEntry = stack[i + 1];
+    const below = belowEntry && parts.get(belowEntry.part);
     if (below) {
-      if (p.sizeBottom === null) {
+      const me = sizesOf(entry, p);
+      const them = sizesOf(belowEntry, below);
+      if (me.bottom === null) {
         errors.push(`Nothing can attach below the ${p.name}`);
-      } else if (below.sizeTop !== p.sizeBottom) {
-        errors.push(`${p.name} (${p.sizeBottom}) doesn't fit on top of ${below.name} (${below.sizeTop}) — use an adapter`);
+      } else if (them.top !== me.bottom) {
+        errors.push(`${p.name} (${me.bottom}) doesn't fit on top of ${below.name} (${them.top}) — use an adapter`);
       }
     }
 

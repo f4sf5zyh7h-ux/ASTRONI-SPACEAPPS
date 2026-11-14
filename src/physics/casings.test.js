@@ -12,10 +12,10 @@ const mission = missions.missions[0];
 
 describe('casings and internals', () => {
   it('counts internal tanks, plates and engines in the stage mass', () => {
-    const design = { stack: [{ part: 'casing-l-med', inside: [{ part: 'thrust-plate-l', engines: { part: 'engine-booster', count: 3 } }, { part: 'inner-tank-l-long' }] }], cargo: [] };
+    const design = { stack: [{ part: 'casing-l-med', inside: [{ part: 'thrust-plate-l', engines: { part: 'engine-booster', count: 5 } }, { part: 'inner-tank-l-long' }] }], cargo: [] };
     const a = analyzeDesign(design, parts);
     const g = (id) => parts.get(id);
-    const expected = g('casing-l-med').mass + g('thrust-plate-l').mass + 3 * g('engine-booster').mass + g('inner-tank-l-long').mass + g('inner-tank-l-long').propellant;
+    const expected = g('casing-l-med').mass + g('thrust-plate-l').mass + 5 * g('engine-booster').mass + g('inner-tank-l-long').mass + g('inner-tank-l-long').propellant;
     expect(a.totalMass).toBeCloseTo(expected, 3);
     expect(a.stages[0].dv).toBeGreaterThan(0);
   });
@@ -27,7 +27,7 @@ describe('casings and internals', () => {
     expect(wide.join(' ')).toMatch(/too wide/);
     const plate = validateInside(parts.get('casing-l-long'), [{ part: 'inner-tank-l-short' }, { part: 'thrust-plate-l' }], parts);
     expect(plate.join(' ')).toMatch(/bottom of its casing/);
-    const ok = validateInside(parts.get('casing-l-long'), [{ part: 'thrust-plate-l', engines: { part: 'engine-booster', count: 9 } }, { part: 'inner-tank-l-long' }], parts);
+    const ok = validateInside(parts.get('casing-l-long'), [{ part: 'thrust-plate-l', engines: { part: 'engine-booster', count: 5 } }, { part: 'inner-tank-l-long' }], parts);
     expect(ok).toEqual([]);
   });
 
