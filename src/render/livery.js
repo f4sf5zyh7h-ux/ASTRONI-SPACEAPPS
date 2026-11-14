@@ -24,6 +24,8 @@ export const PAINT = {
   cabin: finish(0xe9e3d3, 0.75, 0.0),
   panelDark: finish(0x22262c, 0.5, 0.2),
   locker: finish(0xc7ccd2, 0.6, 0.1),
+  // Window glass: see-through with a faint blue tint (the export's glass is opaque white).
+  glass: new THREE.MeshPhysicalMaterial({ color: 0xcfe6ff, roughness: 0.05, metalness: 0, transparent: true, opacity: 0.18, depthWrite: false }),
 };
 
 // What replaces the default metal, per part id prefix. First match wins.
@@ -69,6 +71,7 @@ export function applyLivery(model, modelId) {
   const isCapsule = /^capsule/.test(modelId);
   model.traverse((o) => {
     if (!o.isMesh) return;
+    if (/Glass/.test(o.material?.name ?? '')) { o.material = PAINT.glass; return; }
     // Inner tanks keep their bare aluminium; only default metal is repainted.
     if (!isDefaultMetal(o.material)) return;
     let paint = base;

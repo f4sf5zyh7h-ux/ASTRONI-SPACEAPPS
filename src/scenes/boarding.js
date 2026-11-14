@@ -45,9 +45,18 @@ export function createBoardingScene() {
   const pad = createLaunchPad(scene, { armY, armTipX: 1.25, towerH: armY + 9, radiusAt: (y) => hullRadiusAt(design, parts, rocket, y - BASE) });
 
   // Warm light inside the capsule so the cabin isn't black.
-  const cabinLight = new THREE.PointLight(0xffe2b0, 0.6, 3.5, 1.5);
-  cabinLight.position.set(0, capY + 2.2, 0);
-  scene.add(cabinLight);
+  // Cabin lighting: two warm ceiling lamps over the seats + a cool fill (no shadows in this engine,
+  // so outside daylight is dimmed while you're inside and these take over).
+  const cabinLights = [
+    new THREE.PointLight(0xffe4bc, 0, 3.2, 1.6),
+    new THREE.PointLight(0xffe4bc, 0, 3.2, 1.6),
+    new THREE.PointLight(0xbcd4ff, 0, 2.6, 1.8),
+  ];
+  cabinLights[0].position.set(0.1, capY + 2.3, -0.45);
+  cabinLights[1].position.set(0.1, capY + 2.3, 0.45);
+  cabinLights[2].position.set(0.6, capY + 1.2, 0);
+  const CABIN_ON = [1.6, 1.6, 0.5];
+  scene.add(...cabinLights);
 
   // ---- first-person state ----
   const pos = new THREE.Vector3(pad.startX, armY + EYE, 0); // end of the stairs, on the arm
@@ -221,7 +230,8 @@ export function createBoardingScene() {
     const k = Math.min(1, dt * 3);
     setting.sun.intensity += (2.6 * inside - setting.sun.intensity) * k;
     // The studio reflection map also makes the shiny cabin glare; keep it faint inside.
-    scene.environmentIntensity += ((inside < 1 ? 0.04 : 0.5) - scene.environmentIntensity) * k;
+    scene.environmentIntensity += ((inside < 1 ? 0.22 : 0.5) - scene.environmentIntensity) * k;
+    cabinLights.forEach((l, n) => (l.intensity += ((inside < 1 ? CABIN_ON[n] : 0.25 * CABIN_ON[n]) - l.intensity) * k));
     setting.fill.intensity += ((inside < 1 ? 0.1 : 1.1) - setting.fill.intensity) * k;
     if (mode === 'walk') {
         // Move on the horizontal plane relative to where you're looking.
