@@ -7,6 +7,8 @@ import { createLaunchPad, MOUNT_H } from '../render/launchPad.js';
 import { transition } from '../ui/fade.js';
 import { state } from '../state.js';
 import { referenceDesign } from '../data/designs.js';
+import { createControlPad } from '../ui/controlPad.js';
+import missionData from '../data/missions.json';
 
 const EYE = 1.65; // eye height above the walkway
 const SPEED = 2.4; // walking speed, m/s
@@ -24,7 +26,8 @@ export function createBoardingScene() {
   scene.fog = new THREE.Fog(0x0a1022, 150, 700);
   scene.userData.envIntensity = 0.3;
   const camera = new THREE.PerspectiveCamera(70, 1, 0.03, 3000);
-  scene.add(new THREE.HemisphereLight(0x8aa4d6, 0x1a1f14, 0.6));
+  const sky = new THREE.HemisphereLight(0x8aa4d6, 0x1a1f14, 0.6);
+  scene.add(sky);
   const moon = new THREE.DirectionalLight(0xbcd0ff, 0.6);
   moon.position.set(-60, 100, 40);
   scene.add(moon);
@@ -65,6 +68,8 @@ export function createBoardingScene() {
   let prompt;
   let help;
   let objective;
+  let canvas;
+  let padClock = 0;
   const listeners = [];
   const on = (t, type, fn) => { t.addEventListener(type, fn); listeners.push(() => t.removeEventListener(type, fn)); };
 
@@ -96,24 +101,69 @@ export function createBoardingScene() {
   const panel = new THREE.Vector3(-0.62, capY + 1.5, -0.05);
   const path = () => [enterFrom, new THREE.Vector3(1.9, capY + 1.45, 0), new THREE.Vector3(0.6, capY + 1.3, -0.1), seatEye];
 
+  // ---- control pad on the capsule's panel ----
+  const mission = missionData.missions.find((m) => m.id === state.missionId) ?? missionData.missions[0];
+  let pad2d = null;
+  let screen = null;
+  let toastEl;
+  const ray = new THREE.Raycaster();
+  const ndc = new THREE.Vector2();
+  const panelCentre = new THREE.Vector3(-0.5, capY + 1.52, -0.02);
+
+  const makeScreen = () => {
+    pad2d = createControlPad({
+      design, mission, state,
+      onLaunch: () => {
+        if (manager.factories.has('launch')) transition(manager, 'launch', {}, 900);
+        else showToast('LIFTOFF! (The launch cutscene is the next build step.)');
+      },
+    });
+    // 1024×640 screen, 0.74 m wide, facing the commander's eyes, just in front of the panel.
+    screen = new THREE.Mesh(new THREE.PlaneGeometry(0.74, 0.4625), new THREE.MeshBasicMaterial({ map: pad2d.texture, toneMapped: false, depthTest: false }));
+    screen.position.copy(panelCentre).lerp(seatEye, 0.08);
+    screen.lookAt(seatEye);
+    screen.renderOrder = 10; // drawn over the panel bracket so nothing cuts across it
+    scene.add(screen);
+    // Soft blue glow from the screen onto the cabin.
+    const glow = new THREE.PointLight(0x4fc3f7, 0.06, 1.5);
+    glow.position.copy(screen.position).lerp(seatEye, 0.3);
+    scene.add(glow);
+  };
+
+  /** The control-pad uv under the mouse (or under the crosshair while looking around). */
+  const screenUv = (e) => {
+    if (!screen) return null;
+    if (controls.isLocked || !e) ndc.set(0, 0);
+    else {
+      const r = canvas.getBoundingClientRect();
+      ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    }
+    ray.setFromCamera(ndc, camera);
+    return ray.intersectObject(screen)[0]?.uv ?? null;
+  };
+
+  const showToast = (msg) => {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    setTimeout(() => toastEl.classList.remove('show'), 3500);
+  };
+
   const seated = () => {
     mode = 'seated';
-    setObjective('Seated in the commander’s seat', true);
-    const card = document.createElement('div');
-    card.className = 'seated-card panel';
-    card.innerHTML = `
-      <div class="brief-tag">COCKPIT</div>
-      <p>You're strapped in. In front of you is the control pad, where you'll run the launch checklist, pick the approach orbit and check the cargo.</p>
-      <p class="muted">The control pad is the next build step.</p>
-      <div class="brief-actions">
-        <button data-act="look">Look around</button>
-        <button class="cta" data-act="workshop">Back to workshop</button>
-      </div>`;
-    card.addEventListener('click', (e) => {
-      if (e.target.dataset.act === 'workshop') transition(manager, 'workshop');
-      if (e.target.dataset.act === 'look') { card.remove(); controls.lock(); }
-    });
-    ui.appendChild(card);
+    setObjective('Run the checks on the control pad, then LAUNCH');
+    makeScreen();
+    camera.lookAt(screen.position);
+    camera.fov = 48; // lean in: the screen fills more of the view
+    camera.updateProjectionMatrix();
+    const tips = document.createElement('div');
+    tips.className = 'fp-help';
+    tips.innerHTML = '<div>Click the screen to use it</div><div>Click elsewhere to look around · <kbd>Esc</kbd> mouse</div><div><kbd>1</kbd>–<kbd>6</kbd> screen pages</div>';
+    ui.appendChild(tips);
+    const back = document.createElement('button');
+    back.className = 'skip';
+    back.textContent = '‹ Workshop';
+    back.onclick = () => transition(manager, 'workshop');
+    ui.appendChild(back);
   };
 
   return {
@@ -145,10 +195,23 @@ export function createBoardingScene() {
       prompt.innerHTML = `<b>Capsule hatch</b><span><kbd>E</kbd> Climb in</span>`;
       ui.appendChild(prompt);
 
-      on(ctx.renderer.domElement, 'click', () => { if (mode !== 'entering') controls.lock(); });
+      canvas = ctx.renderer.domElement;
+      toastEl = document.createElement('div');
+      toastEl.className = 'ws-toast';
+      ui.appendChild(toastEl);
+      on(canvas, 'click', (e) => {
+        if (mode === 'entering') return;
+        if (mode === 'seated') {
+          const uv = screenUv(e);
+          if (uv) return pad2d.click(uv); // pressed something on the screen
+        }
+        controls.lock();
+      });
+      on(canvas, 'pointermove', (e) => { if (mode === 'seated') pad2d.hover(screenUv(e)); });
       on(window, 'keydown', (e) => {
         keys.add(e.code);
         if (e.code === 'KeyE' && mode === 'walk' && prompt.classList.contains('show')) startEnter();
+        if (mode === 'seated' && /^Digit[1-6]$/.test(e.code)) pad2d.key(Number(e.code.slice(5)));
       });
       on(window, 'keyup', (e) => keys.delete(e.code));
     },
@@ -164,6 +227,7 @@ export function createBoardingScene() {
     for (const l of pad.lights) l.intensity += (900 * inside - l.intensity) * Math.min(1, dt * 3);
     // The studio reflection map also makes the shiny cabin glare; keep it faint inside.
     scene.environmentIntensity += ((inside < 1 ? 0.04 : 0.3) - scene.environmentIntensity) * Math.min(1, dt * 3);
+    sky.intensity += ((inside < 1 ? 0.12 : 0.6) - sky.intensity) * Math.min(1, dt * 3);
     if (mode === 'walk') {
         // Move on the horizontal plane relative to where you're looking.
         const fwd = camera.getWorldDirection(new THREE.Vector3()).setY(0).normalize();
@@ -195,6 +259,8 @@ export function createBoardingScene() {
         if (u >= 1) seated();
       } else if (mode === 'seated') {
         camera.position.copy(seatEye);
+        padClock += dt;
+        if (padClock > 0.5) { padClock = 0; pad2d.draw(performance.now() / 1000); } // blink
       }
     },
   };

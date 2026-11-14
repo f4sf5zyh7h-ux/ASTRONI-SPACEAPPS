@@ -154,6 +154,20 @@ export function createWorkshopScene() {
     return nodes;
   };
 
+  /** Plain-English reason a part has nowhere to attach, naming the adapter that would help. */
+  const SIZE_NAME = { S: 'small (1.25 m)', M: 'medium (2.5 m)', L: 'large (3.75 m)' };
+  const whyNoFit = (part) => {
+    if (part.radial) return `Side parts go on tanks or modules. Add a tank or module first.`;
+    const top = parts.get(design.stack[0]?.part);
+    if (!top) return `Nowhere for the ${part.name} to fit yet.`;
+    if (!top.sizeTop) return `Nothing can go on top of the ${top.name}. Remove it or insert below it.`;
+    const want = part.sizeBottom;
+    const have = top.sizeTop;
+    const adapter = { 'L>M': 'Adapter L→M', 'M>S': 'Adapter M→S' }[`${have}>${want}`];
+    return `The ${part.name} needs a ${SIZE_NAME[want]} part under it, but your rocket's top is ${SIZE_NAME[have]}.` +
+      (adapter ? ` Add an ${adapter} (Structure tab) first.` : ' Try a different size of part.');
+  };
+
   // ---------- drag & drop ----------
   const markerMat = new THREE.MeshBasicMaterial({ color: 0x4fc3f7, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false });
   const activeMat = new THREE.MeshBasicMaterial({ color: 0xffe066, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false });
@@ -183,7 +197,7 @@ export function createWorkshopScene() {
     drag = { part, ghost, nodes, markers, snapped: null };
     controls.enabled = false;
     document.body.classList.add('dragging');
-    if (!nodes.length) toast(`Nowhere for the ${part.name} to fit yet.`);
+    if (!nodes.length) toast(whyNoFit(part));
     moveDrag(e);
   };
 
@@ -280,7 +294,7 @@ export function createWorkshopScene() {
     toastEl.textContent = msg;
     toastEl.classList.add('show');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2600);
+    toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2000 + msg.length * 40); // longer messages stay longer
   };
 
   const hover = (e) => {
