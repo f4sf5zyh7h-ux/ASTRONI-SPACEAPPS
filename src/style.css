@@ -45,3 +45,38 @@ html, body {
   border-radius: 4px;
   pointer-events: none;
 }
+
+button {
+  font: inherit;
+  color: var(--text);
+  background: rgba(79, 195, 247, 0.12);
+  border: 1px solid rgba(79, 195, 247, 0.4);
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+button:hover { background: rgba(79, 195, 247, 0.25); }
+
+.muted { color: var(--muted); font-size: 12px; }
+
+/* 3D-anchored text labels (CSS2DRenderer) must never block the canvas. */
+#ui > .labels { position: absolute; inset: 0; pointer-events: none; }
+.label {
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: center;
+  color: var(--text);
+  background: rgba(5, 7, 13, 0.7);
+  border-radius: 4px;
+  padding: 3px 6px;
+  white-space: nowrap;
+}
+.label i { color: var(--muted); }
+.label-big { font-size: 14px; font-weight: 600; color: var(--accent); }
+.label-row { font-size: 13px; font-weight: 600; color: var(--accent); background: none; }
+
+.stats { position: absolute; left: 16px; top: 16px; width: 280px; font-size: 13px; }
+.stats .big { font-size: 26px; font-weight: 700; color: var(--accent); margin: 4px 0; }
+.stats ul { padding-left: 18px; margin: 8px 0; }
+
+.view-bar { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; gap: 8px; padding: 8px; }

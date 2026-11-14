@@ -10,6 +10,7 @@ import * as THREE from 'three';
  *   exit()           tear down UI / controls / listeners
  *   update(dt)       per-frame logic, dt in seconds
  *   resize(w, h)     optional
+ *   afterRender()    optional, e.g. draw CSS2D labels
  */
 export class SceneManager {
   constructor(canvas, uiRoot) {
@@ -61,6 +62,7 @@ export class SceneManager {
       if (this.current) {
         this.current.update?.(dt);
         this.renderer.render(this.current.scene, this.current.camera);
+        this.current.afterRender?.();
       }
       this.onFrame?.(dt);
     });
