@@ -105,7 +105,7 @@ const LEGS = [
 /** Right panel contents. */
 export function renderStats(el, { design, report, sim, need, mission, approach, approaches }) {
   if (!design.stack.length) {
-    el.innerHTML = `<h3>Your rocket</h3><p class="muted">Nothing built yet. Drag a part from the left onto the glowing ring on the pad.</p>`;
+    el.innerHTML = `<h3>Your rocket</h3><p class="muted">Nothing built yet. Drag a part from the left onto the glowing ring on the stand.</p>`;
     return;
   }
   if (!report) {

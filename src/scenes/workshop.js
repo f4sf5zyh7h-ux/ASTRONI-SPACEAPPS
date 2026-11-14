@@ -7,6 +7,7 @@ import { simulateMission, missionLegs } from '../physics/mission.js';
 import { buildRocket } from '../render/rocketMesh.js';
 import { createPartMesh } from '../render/partMesh.js';
 import { createCatalog, renderStats } from '../ui/workshopUi.js';
+import { createWorkshopSite } from '../render/workshopSite.js';
 import { state } from '../state.js';
 import missionData from '../data/missions.json';
 
@@ -23,14 +24,15 @@ export function createWorkshopScene() {
   const mission = missionData.missions.find((m) => m.id === state.missionId) ?? missionData.missions[0];
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x0b1220);
+  scene.userData.envIntensity = 0.35; // indoor hangar: softer reflections
   scene.fog = new THREE.Fog(0x0b1220, 120, 420);
   const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 2000);
 
-  scene.add(new THREE.HemisphereLight(0xbfd9ff, 0x2a2f38, 1.4));
-  const sun = new THREE.DirectionalLight(0xfff1dd, 2.2);
+  scene.add(new THREE.HemisphereLight(0xbfd9ff, 0x2a2f38, 0.7));
+  const sun = new THREE.DirectionalLight(0xfff1dd, 1.3);
   sun.position.set(40, 90, 30);
   scene.add(sun);
-  buildPad(scene);
+  const site = createWorkshopSite(scene);
 
   // ---------- design state ----------
   let design = state.design ? structuredClone(state.design) : { stack: [], cargo: standardCargo() };
@@ -50,9 +52,10 @@ export function createWorkshopScene() {
   const rebuild = () => {
     if (rocket) scene.remove(rocket.group);
     rocket = buildRocket(design, parts);
+    rocket.group.position.y = site.base; // stands on the turntable
     scene.add(rocket.group);
     state.design = structuredClone(design);
-    targetY = Math.max(3, rocket.height * 0.45);
+    targetY = site.base + Math.max(3, rocket.height * 0.45);
     if (statsEl) refreshStats();
     if (hint) hint.style.display = design.stack.length ? 'none' : '';
   };
@@ -73,6 +76,27 @@ export function createWorkshopScene() {
     });
   };
 
+  /** Hull radius at height y (rocket-local), 0 above the top. */
+  const radiusAt = (y) => {
+    for (let i = 0; i < design.stack.length; i++) {
+      const o = rocket.objects[i];
+      const p = parts.get(design.stack[i].part);
+      if (y >= o.position.y && y <= o.position.y + p.height + (design.stack[i].engines ? parts.get(design.stack[i].engines.part).height : 0)) return hullRadius(p);
+    }
+    return 0;
+  };
+  /** Clamps grip the lowest tank or module, about 1 m above its bottom. */
+  const gripPoint = () => {
+    for (let i = design.stack.length - 1; i >= 0; i--) {
+      const p = parts.get(design.stack[i].part);
+      if (!isBody(p)) continue;
+      const y = Math.min(rocket.objects[i].position.y + 1, rocket.objects[i].position.y + p.height / 2);
+      const jaw = Math.min(5.3, Math.max(1.5, site.base + y));
+      return { y: jaw, r: radiusAt(jaw - site.base) || hullRadius(p) };
+    }
+    return null;
+  };
+
   // ---------- nodes (where a dragged part may attach) ----------
   /** World-space attach points valid for `part`, each with an apply() that changes the design. */
   const nodesFor = (part) => {
@@ -84,7 +108,7 @@ export function createWorkshopScene() {
         const p = parts.get(e.part);
         if (!isBody(p)) return;
         const r = hullRadius(p);
-        const y = objs[i].position.y + p.height / 2;
+        const y = site.base + objs[i].position.y + p.height / 2;
         nodes.push({
           kind: 'radial', r, angle: RADIAL_ANGLE,
           pos: new THREE.Vector3(Math.cos(RADIAL_ANGLE) * r, y, -Math.sin(RADIAL_ANGLE) * r),
@@ -101,7 +125,7 @@ export function createWorkshopScene() {
     // Stack joints: above the top, between every pair, below the bottom.
     const n = st.length;
     if (n === 0) {
-      nodes.push({ kind: 'stack', r: (DIAMETER[part.sizeBottom] ?? 2.5) / 2, pos: new THREE.Vector3(0, 0, 0), apply: () => st.push({ part: part.id }) });
+      nodes.push({ kind: 'stack', r: (DIAMETER[part.sizeBottom] ?? 2.5) / 2, pos: new THREE.Vector3(0, site.base, 0), apply: () => st.push({ part: part.id }) });
     }
     for (let k = 0; k <= n && n > 0; k++) {
       const above = k > 0 ? parts.get(st[k - 1].part) : null;
@@ -109,7 +133,7 @@ export function createWorkshopScene() {
       const fitsAbove = !above || (above.sizeBottom && above.sizeBottom === part.sizeTop);
       const fitsBelow = !below || (below.sizeTop && part.sizeBottom === below.sizeTop);
       if (!fitsAbove || !fitsBelow) continue;
-      const y = k === 0 ? rocket.height : objs[k - 1].position.y;
+      const y = site.base + (k === 0 ? rocket.height : objs[k - 1].position.y);
       const r = Math.max(above ? hullRadius(above) : 0, below ? hullRadius(below) : 0);
       nodes.push({ kind: 'stack', r, pos: new THREE.Vector3(0, y, 0), apply: () => st.splice(k, 0, { part: part.id }) });
     }
@@ -121,7 +145,7 @@ export function createWorkshopScene() {
         if (e.engines && (e.engines.part !== part.id || e.engines.count >= p.engineCapacity)) return;
         nodes.push({
           kind: 'engine', r: 0.6,
-          pos: new THREE.Vector3(0, objs[i].position.y + (e.engines ? 0 : -0.2), 0),
+          pos: new THREE.Vector3(0, site.base + objs[i].position.y + (e.engines ? 0 : -0.2), 0),
           apply: () => { e.engines = e.engines ? { ...e.engines, count: e.engines.count + 1 } : { part: part.id, count: 1 }; },
         });
       });
@@ -141,6 +165,7 @@ export function createWorkshopScene() {
   const startDrag = (part, e) => {
     const ghost = createPartMesh(part, null, parts);
     ghost.traverse((o) => { if (o.isMesh) o.material = ghostMat; });
+    ghost.userData.height = part.height; // the crane hook hangs just above it
     scene.add(ghost);
     const nodes = nodesFor(part);
     const markers = new THREE.Group();
@@ -283,7 +308,8 @@ export function createWorkshopScene() {
       controls.maxPolarAngle = Math.PI * 0.49;
       controls.minDistance = 6;
       controls.maxDistance = 260;
-      camera.position.set(16, 12, 26);
+      ctx.renderer.localClippingEnabled = true; // factory cutaway
+      camera.position.set(14, 9, 19);
       controls.target.set(0, 3, 0);
 
       const head = document.createElement('div');
@@ -322,7 +348,7 @@ export function createWorkshopScene() {
 
       hint = document.createElement('div');
       hint.className = 'ws-hint';
-      hint.innerHTML = 'Drag a part from the left onto the glowing ring on the pad.<br><span class="muted">Tip: start with a tank and engines, or load the example rocket.</span>';
+      hint.innerHTML = 'Drag a part from the left onto the glowing ring on the stand.<br><span class="muted">Tip: start with a tank and engines, or load the example rocket.</span>';
       ui.appendChild(hint);
 
       tip = document.createElement('div');
@@ -374,43 +400,8 @@ export function createWorkshopScene() {
         const pulse = 0.45 + Math.sin(performance.now() / 180) * 0.25;
         markerMat.opacity = pulse;
       }
+      site.update(dt, { camera, rocketHeight: rocket.height, radiusAt, grip: gripPoint(), carry: drag?.ghost ?? null });
       controls.update();
     },
   };
-}
-
-/** Concrete launch pad with markings and floodlight masts. */
-function buildPad(scene) {
-  const ground = new THREE.Mesh(new THREE.CircleGeometry(600, 48), new THREE.MeshStandardMaterial({ color: 0x1a2130, roughness: 1 }));
-  ground.rotation.x = -Math.PI / 2;
-  ground.position.y = -1;
-  scene.add(ground);
-
-  const pad = new THREE.Mesh(new THREE.BoxGeometry(30, 1, 30), new THREE.MeshStandardMaterial({ color: 0x4a505a, roughness: 0.95 }));
-  pad.position.y = -0.5;
-  scene.add(pad);
-  const grid = new THREE.GridHelper(30, 15, 0x39404c, 0x39404c);
-  grid.position.y = 0.01;
-  scene.add(grid);
-
-  const flat = (geo, color, y) => {
-    const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, roughness: 0.9 }));
-    m.rotation.x = -Math.PI / 2;
-    m.position.y = y;
-    scene.add(m);
-  };
-  flat(new THREE.CircleGeometry(2.6, 48), 0x2a2d33, 0.02); // flame hole
-  flat(new THREE.RingGeometry(6.2, 6.7, 64), 0xf2c230, 0.02); // hazard ring
-  flat(new THREE.RingGeometry(14.2, 14.6, 4, 1, Math.PI / 4), 0xf2c230, 0.02); // pad edge
-
-  const mastMat = new THREE.MeshStandardMaterial({ color: 0x9aa3ad, roughness: 0.6, metalness: 0.4 });
-  const lampMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff2c0, emissiveIntensity: 2 });
-  for (const [x, z] of [[-22, -22], [22, -22], [-22, 22], [22, 22]]) {
-    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 30, 8), mastMat);
-    mast.position.set(x, 15, z);
-    const lamp = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.6, 0.4), lampMat);
-    lamp.position.set(x, 30, z);
-    lamp.lookAt(0, 0, 0);
-    scene.add(mast, lamp);
-  }
 }
