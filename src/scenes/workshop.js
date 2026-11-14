@@ -5,7 +5,7 @@ import { casingDesign, standardCargo } from '../data/designs.js';
 import { analyzeDesign, radialSlots, sizesOf } from '../physics/rocket.js';
 import { simulateMission, missionLegs } from '../physics/mission.js';
 import { buildRocket, slotAngle } from '../render/rocketMesh.js';
-import { createPartMesh } from '../render/partMesh.js';
+import { createPartMesh, hangBelow } from '../render/partMesh.js';
 import { createCatalog, renderStats } from '../ui/workshopUi.js';
 import { createWorkshopSite } from '../render/workshopSite.js';
 import { state } from '../state.js';
@@ -53,10 +53,18 @@ export function createWorkshopScene() {
   const rebuild = () => {
     if (rocket) scene.remove(rocket.group);
     rocket = buildRocket(design, parts);
-    rocket.group.position.y = site.base; // stands on the turntable
+    // The rocket is held up on the stand from the start; the bottom engines drop through the hole in
+    // the turntable (only very tall engines lift it further). buildRocket already raised it by `hang`.
+    const bottom = design.stack[design.stack.length - 1];
+    const hang = bottom ? hangBelow(bottom, parts) : 0;
+    const hullR = bottom ? hullRadius(parts.get(bottom.part)) : 0;
+    rocket.group.position.y = site.hole
+      ? site.base + Math.max(site.hole.lift, hang - site.hole.depth) - hang
+      : site.base;
+    site.setHole?.(hullR);
     scene.add(rocket.group);
     state.design = structuredClone(design);
-    targetY = site.base + Math.max(3, rocket.height * 0.45);
+    targetY = rocket.group.position.y + Math.max(3, rocket.height * 0.45);
     if (statsEl) refreshStats();
     if (hint) hint.style.display = design.stack.length ? 'none' : '';
     setXray(xrayToggle);
@@ -93,8 +101,8 @@ export function createWorkshopScene() {
       const p = parts.get(design.stack[i].part);
       if (!isBody(p)) continue;
       const y = Math.min(rocket.objects[i].position.y + 1, rocket.objects[i].position.y + p.height / 2);
-      const jaw = Math.min(5.3, Math.max(1.5, site.base + y));
-      return { y: jaw, r: radiusAt(jaw - site.base) || hullRadius(p) };
+      const jaw = Math.min(5.3, Math.max(1.5, rocket.group.position.y + y));
+      return { y: jaw, r: radiusAt(jaw - rocket.group.position.y) || hullRadius(p) };
     }
     return null;
   };
@@ -115,7 +123,7 @@ export function createWorkshopScene() {
         const isPlate = part.role === 'thrust-plate';
         if (isPlate && inside[0] && parts.get(inside[0].part).role === 'thrust-plate') return;
         if (used + part.height > p.interior.height + 1e-6) return;
-        const y = site.base + objs[i].position.y + (isPlate ? 0 : used);
+        const y = rocket.group.position.y + objs[i].position.y + (isPlate ? 0 : used);
         nodes.push({
           kind: 'inside', r: (DIAMETER[p.interior.size] ?? 2.5) / 2 - 0.1, h: part.height,
           pos: new THREE.Vector3(0, y + part.height / 2, 0), base: y,
@@ -134,7 +142,7 @@ export function createWorkshopScene() {
         if (!layout) return;
         const r = hullRadius(p);
         const angle = slotAngle(layout[layout.length - 1].slots[0]);
-        const y = site.base + objs[i].position.y + (part.role === 'fin' ? part.height / 2 + 0.3 : p.height / 2);
+        const y = rocket.group.position.y + objs[i].position.y + (part.role === 'fin' ? part.height / 2 + 0.3 : p.height / 2);
         nodes.push({
           kind: 'radial', r, angle,
           pos: new THREE.Vector3(Math.cos(angle) * r, y, -Math.sin(angle) * r),
@@ -144,9 +152,10 @@ export function createWorkshopScene() {
       return nodes;
     }
     // Stack joints: above the top, between every pair, below the bottom.
-    const n = st.length;
+    // Engines never stack as separate blocks: they go in sets on a casing's thrust plate (below).
+    const n = part.category === 'engines' ? -1 : st.length;
     if (n === 0) {
-      nodes.push({ kind: 'stack', r: (DIAMETER[part.sizeBottom] ?? 2.5) / 2, pos: new THREE.Vector3(0, site.base, 0), apply: () => st.push({ part: part.id }) });
+      nodes.push({ kind: 'stack', r: (DIAMETER[part.sizeBottom] ?? 2.5) / 2, pos: new THREE.Vector3(0, rocket.group.position.y, 0), apply: () => st.push({ part: part.id }) });
     }
     const flips = part.id.startsWith('adapter') ? [false, true] : [false]; // adapters work either way up
     for (let k = 0; k <= n && n > 0; k++) {
@@ -159,7 +168,7 @@ export function createWorkshopScene() {
         const fitsAbove = !above || (above.bottom && above.bottom === me.top);
         const fitsBelow = !below || (below.top && me.bottom === below.top);
         if (!fitsAbove || !fitsBelow) continue;
-        const y = site.base + (k === 0 ? rocket.height : objs[k - 1].position.y);
+        const y = rocket.group.position.y + (k === 0 ? rocket.height : objs[k - 1].position.y);
         const r = Math.max(aboveE ? hullRadius(parts.get(aboveE.part)) : 0, belowE ? hullRadius(parts.get(belowE.part)) : 0);
         nodes.push({ kind: 'stack', r, pos: new THREE.Vector3(0, y, 0), apply: () => st.splice(k, 0, flip ? { part: part.id, flip: true } : { part: part.id }) });
       }
@@ -172,21 +181,33 @@ export function createWorkshopScene() {
         if (e.engines && (e.engines.part !== part.id || e.engines.count >= p.engineCapacity)) return;
         nodes.push({
           kind: 'engine', r: 0.6,
-          pos: new THREE.Vector3(0, site.base + objs[i].position.y + (e.engines ? 0 : -0.2), 0),
+          pos: new THREE.Vector3(0, rocket.group.position.y + objs[i].position.y + (e.engines ? 0 : -0.2), 0),
           apply: () => { e.engines = e.engines ? { ...e.engines, count: e.engines.count + 1 } : { part: part.id, count: 1 }; },
         });
       });
-      // …or onto a casing's thrust plate (any engine no bigger than the plate).
+      // …or under a casing, as a full set on its thrust plate. A casing without a plate gets the
+      // matching one fitted automatically (S → 1 engine, M → 3, L → 5: the thrust stays centred).
       st.forEach((e, i) => {
-        const plate = e.inside?.[0];
-        const pp = plate && parts.get(plate.part);
-        if (pp?.role !== 'thrust-plate' || SIZE_RANK[part.sizeTop] > SIZE_RANK[pp.size]) return;
-        if (plate.engines) return; // one full set per plate
+        const p = parts.get(e.part);
+        if (!p.interior) return;
+        const inside = e.inside ?? [];
+        let plate = inside[0] && parts.get(inside[0].part).role === 'thrust-plate' ? inside[0] : null;
+        if (plate?.engines) return; // one full set per plate
+        const plateId = plate ? plate.part : `thrust-plate-${p.interior.size.toLowerCase()}`;
+        const pp = parts.get(plateId);
+        if (!pp || SIZE_RANK[part.sizeTop] > SIZE_RANK[pp.size]) return;
+        if (!plate) {
+          const used = inside.reduce((t, c) => t + parts.get(c.part).height, 0);
+          if (used + pp.height > p.interior.height + 1e-6) return; // no room for a plate
+        }
         nodes.push({
-          kind: 'engine', r: 0.6,
-          pos: new THREE.Vector3(0, site.base + objs[i].position.y - 0.4, 0),
-          // Fixed sets keep the thrust centred: S plate 1 engine, M plate 3, L plate 5.
-          apply: () => { plate.engines = { part: part.id, count: pp.engineCapacity }; },
+          kind: 'engine', r: (DIAMETER[pp.size] ?? 2.5) / 2,
+          pos: new THREE.Vector3(0, rocket.group.position.y + objs[i].position.y - 0.4, 0),
+          apply: () => {
+            const set = { part: part.id, count: pp.engineCapacity };
+            if (plate) plate.engines = set;
+            else e.inside = [{ part: plateId, engines: set }, ...inside];
+          },
         });
       });
     }
@@ -199,6 +220,9 @@ export function createWorkshopScene() {
     if (part.radial) return design.stack.some((e) => isBody(parts.get(e.part)))
       ? `No free side slots for ${symmetry} × ${part.name}. Try ×1 or ×2, or remove a side part (right-click).`
       : 'Side parts go on casings or modules. Add one first.';
+    if (part.category === 'engines') return design.stack.some((e) => parts.get(e.part).interior)
+      ? `Engines go under a casing as a full set (S casing 1, M 3, L 5). Every casing already has engines, or the ${part.name} is too big for it, or the casing is too full for a thrust plate.`
+      : 'Engines go under a casing. Add a casing first (Casings tab).';
     const top = parts.get(design.stack[0]?.part);
     if (!top) return `Nowhere for the ${part.name} to fit yet.`;
     if (!top.sizeTop) return `Nothing can go on top of the ${top.name}. Remove it or insert below it.`;
@@ -523,7 +547,7 @@ export function createWorkshopScene() {
         const pulse = 0.45 + Math.sin(performance.now() / 180) * 0.25;
         markerMat.opacity = pulse;
       }
-      site.update(dt, { camera, rocketHeight: rocket.height, radiusAt, grip: gripPoint(), carry: drag?.ghost ?? null });
+      site.update(dt, { camera, base: rocket.group.position.y, rocketHeight: rocket.height, radiusAt, grip: gripPoint(), carry: drag?.ghost ?? null });
       controls.update();
     },
   };

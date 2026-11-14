@@ -76,10 +76,14 @@ export function createWorkshopSite(scene) {
   }
 
   const base = stand ? DECK_Y : 0;
+  const hole = stand ? makeHole(stand) : null;
 
   return {
     base,
-    update(dt, { camera, rocketHeight, radiusAt, grip, carry }) {
+    // The rocket is held 1.4 m above the deck; engines drop through the hole (0.9 m to the floor).
+    hole: hole && { lift: 1.4, depth: DECK_Y - 0.1 },
+    setHole: (r) => hole?.set(r),
+    update(dt, { camera, base: rocketBase = base, rocketHeight, radiusAt, grip, carry }) {
       const k = Math.min(1, dt * 3);
 
       // Clamps: grip the lowest tank/module (radius 0.31–1.875 m, jaw 1.5–5.3 m high), else open wide.
@@ -94,11 +98,11 @@ export function createWorkshopSite(scene) {
           jaw.position.y = rig.jawY - 1.1; // clamp base sits 1.1 m above the floor
         }
         // Work platform rides to the top of the rocket (1.5–35 m); the arm reaches the hull there.
-        const top = base + rocketHeight;
+        const top = rocketBase + rocketHeight;
         const platTarget = clamp(top - 2, 1.5, 35);
         rig.platY = lerp(rig.platY, platTarget, k);
         rig.platform.position.y = rig.platY;
-        const r = rocketHeight > 0 ? radiusAt(rig.platY - base) : 0;
+        const r = rocketHeight > 0 ? radiusAt(rig.platY - rocketBase) : 0;
         // Bumper tip x = 3 + ext.x − 1.05 (stand space); touch the hull at radius r, or retract.
         const reachTarget = r > 0 ? r : 1.875;
         rig.reach = lerp(rig.reach, reachTarget, k);
@@ -109,7 +113,7 @@ export function createWorkshopSite(scene) {
       if (crane) {
         const tx = carry ? clamp(carry.position.x, -27, 27) : 0;
         const tz = carry ? clamp(carry.position.z, -21, 21) : 0;
-        const carryTop = carry ? carry.position.y + (carry.userData.height ?? 1) : base + rocketHeight;
+        const carryTop = carry ? carry.position.y + (carry.userData.height ?? 1) : rocketBase + rocketHeight;
         const th = clamp(carryTop + 2.4, 3, 39);
         const ck = Math.min(1, dt * (carry ? 8 : 2));
         crane.x = lerp(crane.x, tx, ck);
@@ -134,10 +138,97 @@ export function createWorkshopSite(scene) {
         } else {
           cutPlane.constant = 1e6;
         }
-        roofPlane.constant = base + rocketHeight > 40 || camera.position.y > 44 ? ROOF_CUT : 1e6;
+        roofPlane.constant = rocketBase + rocketHeight > 40 || camera.position.y > 44 ? ROOF_CUT : 1e6;
       }
     },
   };
+}
+
+/** Flat ring (annulus) from radius a to b, between heights y0 and y1, with inner and outer walls. */
+function ringGeometry(a, b, y0, y1) {
+  const pts = [[a, y0], [b, y0], [b, y1], [a, y1], [a, y0]].map(([x, y]) => new THREE.Vector2(x, y));
+  return new THREE.LatheGeometry(pts, 64);
+}
+
+/** Square slab (half-size h) between y0 and y1 with a round hole of radius r in the middle. */
+function slabWithHole(h, r, y0, y1) {
+  const shape = new THREE.Shape([[-h, -h], [h, -h], [h, h], [-h, h]].map(([x, y]) => new THREE.Vector2(x, y)));
+  const hole = new THREE.Path();
+  hole.absarc(0, 0, r, 0, Math.PI * 2, true);
+  shape.holes.push(hole);
+  const g = new THREE.ExtrudeGeometry(shape, { depth: y1 - y0, bevelEnabled: false, curveSegments: 48 });
+  g.rotateX(-Math.PI / 2);
+  g.translate(0, y0, 0);
+  return g;
+}
+
+/**
+ * Cut a round hole through the stand's turntable so the bottom engines hang through it.
+ * The solid deck, bearing ring, base and rails are swapped for versions with a hole of radius r.
+ */
+function makeHole(stand) {
+  const mesh = (name) => {
+    let m = stand.getObjectByName(name);
+    while (m && !m.isMesh) m = m.children[0];
+    return m;
+  };
+  const centre = stand.getObjectByName('turntable-turntable-centre-pad');
+  if (centre) centre.visible = false;
+  const deck = mesh('turntable-turntable-deck');
+  const bearing = mesh('bearing-ring');
+  const slab = mesh('base');
+  const safety = mesh('base-safety-ring');
+  const rails = mesh('turntable-clamp-rails');
+  // Dark pit floor so the hole reads as a hole (flame trench).
+  const pit = new THREE.Mesh(new THREE.CircleGeometry(1, 48), new THREE.MeshStandardMaterial({ color: 0x0c0e12, roughness: 1 }));
+  pit.rotation.x = -Math.PI / 2;
+  pit.position.y = 0.02;
+  stand.add(pit);
+  let current = -1;
+  const swap = (m, g) => { if (!m) return; m.geometry.dispose(); m.geometry = g; };
+  return {
+    set(hullR) {
+      const r = Math.min(2.8, Math.max(0.8, (hullR || 1) + 0.08));
+      if (Math.abs(r - current) < 1e-3) return;
+      current = r;
+      swap(deck, ringGeometry(r, 3.0, 0.7, 1.0));
+      swap(bearing, ringGeometry(r, 3.0, 0.6, 0.7));
+      swap(safety, ringGeometry(r, 4.4, 0.6, 0.61));
+      swap(slab, slabWithHole(4.5, r, 0, 0.6));
+      if (rails) {
+        // Four radial rails from the hole's edge out to the rim (one per clamp).
+        const len = 2.95 - r;
+        const parts = [0, 1, 2, 3].map((k) => {
+          const b = new THREE.BoxGeometry(len, 0.1, 0.25);
+          b.translate(r + len / 2, 1.05, 0);
+          b.rotateY((k * Math.PI) / 2);
+          return b;
+        });
+        swap(rails, mergeBoxes(parts));
+      }
+      pit.scale.setScalar(r);
+    },
+  };
+}
+
+/** Merge a few non-indexed-compatible box geometries into one. */
+function mergeBoxes(geoms) {
+  const pos = [];
+  const nor = [];
+  const idx = [];
+  let off = 0;
+  for (const g of geoms) {
+    pos.push(...g.attributes.position.array);
+    nor.push(...g.attributes.normal.array);
+    idx.push(...Array.from(g.index.array, (i) => i + off));
+    off += g.attributes.position.count;
+    g.dispose();
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  out.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  out.setIndex(idx);
+  return out;
 }
 
 /** Fallback when factory.glb is missing: concrete pad with markings. */
