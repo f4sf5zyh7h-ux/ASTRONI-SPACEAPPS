@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { parts } from '../data/catalog.js';
-import { buildRocket } from '../render/rocketMesh.js';
-import { createStarfield } from '../render/space.js';
-import { createLaunchPad, MOUNT_H } from '../render/launchPad.js';
+import { buildRocket, hullRadiusAt } from '../render/rocketMesh.js';
+import { createPadSetting } from '../render/padSetting.js';
+import { createLaunchPad, padBase } from '../render/launchPad.js';
 import { transition } from '../ui/fade.js';
 import { state } from '../state.js';
 import { referenceDesign } from '../data/designs.js';
@@ -22,25 +22,19 @@ export function createBoardingScene() {
   // Dev shortcut ?scene=boarding has no design yet: use the example rocket.
   const design = state.design?.stack.some((e) => e.part === 'capsule-2') ? state.design : referenceDesign();
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0a1022);
-  scene.fog = new THREE.Fog(0x0a1022, 150, 700);
-  scene.userData.envIntensity = 0.3;
-  const camera = new THREE.PerspectiveCamera(70, 1, 0.03, 3000);
-  const sky = new THREE.HemisphereLight(0x8aa4d6, 0x1a1f14, 0.6);
-  scene.add(sky);
-  const moon = new THREE.DirectionalLight(0xbcd0ff, 0.6);
-  moon.position.set(-60, 100, 40);
-  scene.add(moon);
-  const stars = createStarfield(3000, 2500);
-  scene.add(stars);
+  scene.userData.envIntensity = 0.5;
+  const camera = new THREE.PerspectiveCamera(70, 1, 0.03, 20000);
+  // Daytime at the pad: blue sky, coastal scrubland, ocean (padSetting.js).
+  const setting = createPadSetting(scene);
 
   // ---- rocket on the launch table ----
   const rocket = buildRocket(design, parts);
-  rocket.group.position.y = MOUNT_H;
+  const BASE = padBase();
+  rocket.group.position.y = BASE;
   scene.add(rocket.group);
   const capIndex = design.stack.findIndex((e) => e.part === 'capsule-2');
   const capsule = rocket.objects[capIndex];
-  const capY = MOUNT_H + capsule.position.y; // capsule base height in the world
+  const capY = BASE + capsule.position.y; // capsule base height in the world
 
   // Capsule geometry (capsule-2.glb): side hatch on +X, 0.95–1.85 m up, hinged at z = −0.45;
   // seats recline facing the control panel on −X.
@@ -48,7 +42,7 @@ export function createBoardingScene() {
   if (hatchNode) hatchNode.rotation.y = 1.7; // the door is already open when you arrive
   const hatch = new THREE.Vector3(1.05, capY + 1.4, 0);
   const armY = capY + 0.9; // walkway floor just below the hatch sill
-  const pad = createLaunchPad(scene, { armY, armTipX: 1.25, towerH: armY + 9 });
+  const pad = createLaunchPad(scene, { armY, armTipX: 1.25, towerH: armY + 9, radiusAt: (y) => hullRadiusAt(design, parts, rocket, y - BASE) });
 
   // Warm light inside the capsule so the cabin isn't black.
   const cabinLight = new THREE.PointLight(0xffe2b0, 0.6, 3.5, 1.5);
@@ -56,7 +50,7 @@ export function createBoardingScene() {
   scene.add(cabinLight);
 
   // ---- first-person state ----
-  const pos = new THREE.Vector3(pad.towerX, armY + EYE, 0); // top of the stairs
+  const pos = new THREE.Vector3(pad.startX, armY + EYE, 0); // end of the stairs, on the arm
   const keys = new Set();
   let controls;
   let mode = 'walk'; // walk → entering → seated
@@ -75,7 +69,7 @@ export function createBoardingScene() {
 
   // Walkable area: the tower top (4 × 4 m) and the 1.5 m wide arm out to the hatch.
   const clampWalk = (p) => {
-    p.x = THREE.MathUtils.clamp(p.x, 1.6, pad.towerX + 1.6);
+    p.x = THREE.MathUtils.clamp(p.x, 1.6, pad.walkMaxX);
     const onTower = p.x > pad.towerX - 2;
     const zMax = onTower ? 1.6 : 0.6;
     p.z = THREE.MathUtils.clamp(p.z, -zMax, zMax);
@@ -221,13 +215,14 @@ export function createBoardingScene() {
       controls?.dispose();
     },
     update(dt) {
-      stars.position.copy(camera.position);
-      // Floodlights have no shadows, so they'd shine through the capsule walls: dim them inside.
+      setting.update(camera, 0);
+      // Lights have no shadows, so daylight would shine straight through the capsule walls: dim it inside.
     const inside = mode !== 'walk' ? 0.03 : 1;
-    for (const l of pad.lights) l.intensity += (900 * inside - l.intensity) * Math.min(1, dt * 3);
+    const k = Math.min(1, dt * 3);
+    setting.sun.intensity += (2.6 * inside - setting.sun.intensity) * k;
     // The studio reflection map also makes the shiny cabin glare; keep it faint inside.
-    scene.environmentIntensity += ((inside < 1 ? 0.04 : 0.3) - scene.environmentIntensity) * Math.min(1, dt * 3);
-    sky.intensity += ((inside < 1 ? 0.12 : 0.6) - sky.intensity) * Math.min(1, dt * 3);
+    scene.environmentIntensity += ((inside < 1 ? 0.04 : 0.5) - scene.environmentIntensity) * k;
+    setting.fill.intensity += ((inside < 1 ? 0.1 : 1.1) - setting.fill.intensity) * k;
     if (mode === 'walk') {
         // Move on the horizontal plane relative to where you're looking.
         const fwd = camera.getWorldDirection(new THREE.Vector3()).setY(0).normalize();

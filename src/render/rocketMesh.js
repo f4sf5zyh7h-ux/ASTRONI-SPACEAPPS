@@ -42,3 +42,21 @@ export function buildRocket(design, parts) {
 
   return { group, objects, height: y };
 }
+
+/**
+ * Hull radius of a built rocket at height y (rocket-local, metres), 0 outside it.
+ * Tapered parts (capsule, adapters) are interpolated between their bottom and top sizes.
+ */
+export function hullRadiusAt(design, parts, rocket, y) {
+  for (let i = 0; i < design.stack.length; i++) {
+    const entry = design.stack[i];
+    const p = parts.get(entry.part);
+    const y0 = rocket.objects[i].position.y;
+    const h = stackHeight(p, entry, parts);
+    if (y < y0 || y > y0 + h) continue;
+    const rB = (DIAMETER[p.sizeBottom] ?? DIAMETER[p.sizeTop] ?? 0) / 2;
+    const rT = (DIAMETER[p.sizeTop] ?? 0) / 2;
+    return rB + (rT - rB) * Math.min(1, (y - y0) / p.height);
+  }
+  return 0;
+}

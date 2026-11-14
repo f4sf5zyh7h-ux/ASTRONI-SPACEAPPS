@@ -11,6 +11,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
  *   exit()           tear down UI / controls / listeners
  *   update(dt)       per-frame logic, dt in seconds
  *   resize(w, h)     optional
+ *   render(renderer) optional, replaces the default single render (layered scenes)
  *   afterRender()    optional, e.g. draw CSS2D labels
  */
 export class SceneManager {
@@ -79,7 +80,9 @@ export class SceneManager {
       const dt = Math.min(this.timer.getDelta(), 0.1);
       if (this.current) {
         this.current.update?.(dt);
-        this.renderer.render(this.current.scene, this.current.camera);
+        // A scene may draw itself (e.g. a far-away Earth layer behind the main scene).
+        if (this.current.render) this.current.render(this.renderer);
+        else this.renderer.render(this.current.scene, this.current.camera);
         this.current.afterRender?.();
       }
       this.onFrame?.(dt);
