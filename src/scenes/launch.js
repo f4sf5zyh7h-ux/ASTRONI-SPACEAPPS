@@ -186,9 +186,11 @@ export function createLaunchScene() {
       ${body}
       <div class="brief-actions">
         <button data-act="retry">↺ Launch again</button>
-        <button class="cta" data-act="workshop">Back to workshop (keep design)</button>
+        ${ok ? '<button data-act="workshop">Workshop</button><button class="cta" data-act="eva">Suit up ▶</button>'
+    : '<button class="cta" data-act="workshop">Back to workshop (keep design)</button>'}
       </div>`;
     card.addEventListener('click', (e) => {
+      if (e.target.dataset.act === 'eva') transition(manager, 'eva');
       if (e.target.dataset.act === 'workshop') transition(manager, 'workshop');
       if (e.target.dataset.act === 'retry') transition(manager, 'launch');
     });
@@ -355,7 +357,7 @@ export function createLaunchScene() {
           phase = 'done';
           if (sim.failedAt === 'rendezvous') return fail('Not enough RCS fuel to line up with the satellite.');
           narrator.say('Holding position next to AURORA-7. Time to suit up.');
-          endCard(true, 'Arrived at AURORA-7', `<p>You reached the satellite. Next: suit up and spacewalk to replace the panel and take the data module (next build step).</p>${legTable()}`);
+          endCard(true, 'Arrived at AURORA-7', `<p>You're holding position next to AURORA-7. The Specialist suits up to spacewalk: replace the broken solar panel and bring the data module back.</p>${legTable()}`);
         }
       }
 

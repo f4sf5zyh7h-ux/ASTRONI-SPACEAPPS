@@ -11,6 +11,6 @@ A row is only marked **verified** after the value has been checked against the s
 | Whipple shield concept | NASA ODPO / hypervelocity impact pages | debris-shield tooltip | — | planned |
 | Solar flares (FLR) | NASA DONKI | `src/data/nasa/solar_flares.json` → solar-flare event | — | planned |
 | Earth imagery | NASA Visible Earth / Blue Marble | `public/textures/earth_*.jpg` | — | planned |
-| Hubble servicing missions | NASA Hubble mission pages | `src/data/nasa/eva.json` → briefing/debrief "Real world" card | — | planned |
+| Hubble servicing missions (5 missions 1993–2009, solar arrays replaced on spacewalks) | NASA Hubble mission pages | debrief "Real world" card (`src/scenes/return.js`) | — | in use, not yet verified against the source |
 | Rocket equation, thrust, staging | NASA Glenn "Beginner's Guide to Rockets" | "Learn more" links in tooltips | — | planned |
 | Challenge resources | Space Mission Design Game challenge page, Resources tab | TBD | — | planned |

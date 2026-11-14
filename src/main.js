@@ -9,6 +9,8 @@ import { createShowroomScene } from './scenes/showroom.js';
 import { createWorkshopScene } from './scenes/workshop.js';
 import { createBoardingScene } from './scenes/boarding.js';
 import { createLaunchScene } from './scenes/launch.js';
+import { createEvaScene } from './scenes/eva.js';
+import { createReturnScene } from './scenes/return.js';
 
 const manager = new SceneManager(
   document.getElementById('view'),
@@ -22,6 +24,8 @@ manager.register('intro', createIntroScene);
 manager.register('workshop', createWorkshopScene);
 manager.register('boarding', createBoardingScene);
 manager.register('launch', createLaunchScene);
+manager.register('eva', createEvaScene);
+manager.register('return', createReturnScene);
 manager.register('showroom', createShowroomScene);
 
 if (import.meta.env.DEV) {
