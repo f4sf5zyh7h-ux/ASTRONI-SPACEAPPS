@@ -30,10 +30,10 @@ if (import.meta.env.DEV) {
   window.__state = state;
 }
 
-// Use any GLB models dropped into /public/models/, primitives for the rest.
-await preloadModels();
-
-// Dev shortcut: ?scene=intro jumps straight to a scene.
+// Models load in the background while the title screen shows (it doesn't need them);
+// Continue waits for them. Dev shortcut ?scene=intro waits first, then jumps straight there.
 const start = import.meta.env.DEV && new URLSearchParams(location.search).get('scene');
+const loading = preloadModels();
+if (start && manager.factories.has(start) && start !== 'title') await loading;
 manager.go(start && manager.factories.has(start) ? start : 'title');
 manager.start();

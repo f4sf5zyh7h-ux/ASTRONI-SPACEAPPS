@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { addSpaceLighting, createStarfield, createEarth } from '../render/space.js';
 import { transition } from '../ui/fade.js';
+import { modelProgress, modelsReady } from '../render/models.js';
 
 /** Title screen: Earth's limb at dawn, the ASTRONI logo, Continue. */
 export function createTitleScene() {
@@ -28,12 +29,28 @@ export function createTitleScene() {
         <p class="tagline">Build it. Fly it. Fix it. Bring them home.</p>
         <button class="cta">Continue</button>
         <div class="hint">or press Enter</div>
+        <div class="load-bar" title="Loading the 3D parts"><i></i><span></span></div>
         <footer>NASA Space Apps Challenge 2026 · Space Mission Design Game</footer>`;
       ui.appendChild(root);
+
+      // Models keep loading behind the title; show progress, and wait for them on Continue.
+      const bar = root.querySelector('.load-bar');
+      const paint = () => {
+        const { done, total } = modelProgress;
+        bar.querySelector('i').style.width = `${total ? (done / total) * 100 : 100}%`;
+        bar.querySelector('span').textContent = done >= total ? 'Ready' : `Loading parts ${done} / ${total}`;
+        bar.classList.toggle('done', done >= total);
+      };
+      paint();
+      const timer = setInterval(paint, 150);
+      modelsReady().then(() => { paint(); clearInterval(timer); });
+
       let leaving = false;
-      const go = () => {
+      const go = async () => {
         if (leaving) return;
         leaving = true;
+        root.querySelector('.cta').textContent = 'Loading…';
+        await modelsReady();
         transition(manager, 'missions');
       };
       root.querySelector('.cta').onclick = go;

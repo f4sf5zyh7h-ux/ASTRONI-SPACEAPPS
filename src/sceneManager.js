@@ -18,6 +18,9 @@ export class SceneManager {
   constructor(canvas, uiRoot) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // Filmic tone mapping: bright whites roll off softly instead of clipping (more camera-like).
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.0;
     this.ui = uiRoot;
     this.factories = new Map();
     this.current = null;
