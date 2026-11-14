@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 /**
  * Owns the single WebGL renderer and runs exactly one scene at a time.
@@ -38,8 +39,25 @@ export class SceneManager {
       this.ui.replaceChildren();
     }
     this.current = factory(params);
+    // Metallic GLB materials (from Fusion) render black without something to reflect.
+    // Give every scene a soft studio environment unless it sets its own.
+    const s = this.current.scene;
+    if (s && !s.environment) {
+      s.environment = this.envMap();
+      s.environmentIntensity = s.userData.envIntensity ?? 0.6;
+    }
     this.current.enter?.({ renderer: this.renderer, ui: this.ui, manager: this });
     this.resize();
+  }
+
+  /** Shared reflection map (built once). */
+  envMap() {
+    if (!this._env) {
+      const pmrem = new THREE.PMREMGenerator(this.renderer);
+      this._env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+      pmrem.dispose();
+    }
+    return this._env;
   }
 
   resize() {

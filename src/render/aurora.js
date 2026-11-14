@@ -112,7 +112,9 @@ function primitiveAurora() {
  * Intact state shows a full wing where array_broken sits (mirrored copy of array_intact).
  */
 export function createAurora() {
-  const group = getModel('aurora-7') ?? primitiveAurora();
+  const model = getModel('satellite-aurora7');
+  if (model) return modelAurora(model);
+  const group = primitiveAurora();
   const intact = group.getObjectByName('array_intact');
   const broken = group.getObjectByName('array_broken');
 
@@ -131,6 +133,25 @@ export function createAurora() {
   };
   setBroken(true);
   return { group, setBroken, wingToShatter: healthy };
+}
+
+/**
+ * The human's satellite-aurora7.glb: two intact arrays (array-intact, array-intact-2) on hinges
+ * along ±Z, body 7.1 m tall from y = 0. Turned a quarter so the arrays point along ±X like the
+ * primitive (array-intact-2 ends up on +X, the side the debris hits) and lowered so the body
+ * centre sits where the cameras look. "Broken" = array-intact-2 gone.
+ */
+function modelAurora(model) {
+  const group = new THREE.Group();
+  model.rotation.y = -Math.PI / 2;
+  model.position.y = -2.2;
+  group.add(model);
+  const wing = model.getObjectByName('array-intact-2');
+  const setBroken = (b) => {
+    if (wing) wing.visible = !b;
+  };
+  setBroken(true);
+  return { group, setBroken, wingToShatter: wing };
 }
 
 /** Pieces of a solar panel flung out from `origin` (world). Call tick(dt) each frame. */

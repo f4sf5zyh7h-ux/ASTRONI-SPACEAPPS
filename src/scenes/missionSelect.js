@@ -33,6 +33,7 @@ const CARDS = [
 export function createMissionSelectScene() {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x000000);
+  scene.userData.envIntensity = 0.2; // space: little reflected light
   const camera = new THREE.PerspectiveCamera(BASE_FOV, 1, 0.1, 20000);
   addSpaceLighting(scene);
   const stars = createStarfield();
@@ -66,7 +67,7 @@ export function createMissionSelectScene() {
     { pos: new THREE.Vector3(70, 30, -5940), target: new THREE.Vector3(30, 8, -6000), orbit: 6 },
   ];
   const anchors = [aurora.group, moon, cloud];
-  const tagHeights = [5, 72, 16];
+  const tagHeights = [6.5, 72, 16];
   const tags = [];
 
   let index = 0;

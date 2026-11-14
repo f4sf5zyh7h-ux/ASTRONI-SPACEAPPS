@@ -63,6 +63,40 @@ export function engineLayout(count, mountRadius) {
   return pts;
 }
 
+/** Smallest distance between two engine positions (Infinity for a single engine). */
+function minSpacing(points) {
+  let d = Infinity;
+  for (let i = 0; i < points.length; i++) {
+    for (let j = i + 1; j < points.length; j++) {
+      d = Math.min(d, Math.hypot(points[i][0] - points[j][0], points[i][1] - points[j][1]));
+    }
+  }
+  return d;
+}
+
+/** The part's GLB model (parts.json "model" field, else its id), or null. */
+function modelFor(part) {
+  const m = getModel(part.model ?? part.id);
+  if (m) m.userData.isModel = true;
+  return m;
+}
+
+const radialBoxes = new Map();
+/**
+ * Side-mounted models: shift so the inner face touches the hull (min x = 0) and the
+ * part is centred on y = 0 and z = 0, matching the primitive convention.
+ * (Fins are modelled with their origin at the bottom, the SRB on its own axis.)
+ */
+function alignRadial(model, key) {
+  if (!radialBoxes.has(key)) radialBoxes.set(key, new THREE.Box3().setFromObject(model));
+  const b = radialBoxes.get(key);
+  const g = new THREE.Group();
+  model.position.set(-b.min.x, -(b.min.y + b.max.y) / 2, -(b.min.z + b.max.z) / 2);
+  g.add(model);
+  g.userData.isModel = true;
+  return g;
+}
+
 /** Build one stack part (with any engines hung under it). */
 function stackPart(part, entry, parts) {
   const g = new THREE.Group();
@@ -116,8 +150,15 @@ function stackPart(part, entry, parts) {
       const eh = eng ? eng.height : 0;
       g.add(mesh(cyl(rT, rT * 0.95, h), MAT.metal, eh));
       if (eng) {
-        for (const [x, z] of engineLayout(entry.engines.count, rT)) {
-          const e = engine(eng);
+        const layout = engineLayout(entry.engines.count, rT);
+        // A clustered engine model is as wide as its size class (2.5 m), far too wide to sit
+        // side by side under one mount. Narrow it to fit its slot; physics is unaffected.
+        const slot = minSpacing(layout) * 0.95;
+        const width = DIAMETER[eng.sizeBottom] ?? 2.5;
+        const squeeze = Math.min(1, slot / width);
+        for (const [x, z] of layout) {
+          const e = modelFor(eng) ?? engine(eng);
+          if (e.userData.isModel) e.scale.set(squeeze, 1, squeeze);
           e.position.set(x, 0, z);
           g.add(e);
         }
@@ -190,7 +231,8 @@ function radialPart(part) {
 /** Return the GLB if the human has dropped one into /public/models/, else the primitive. */
 export function createPartMesh(part, entry, parts, { locked = false } = {}) {
   // Engine mounts stay procedural because their engine count changes per design.
-  const model = entry?.engines ? null : getModel(part.id);
+  let model = entry?.engines ? null : modelFor(part);
+  if (model && part.radial) model = alignRadial(model, part.model ?? part.id);
   const obj = model ?? (part.radial ? radialPart(part) : stackPart(part, entry, parts));
   if (locked) obj.traverse((o) => { if (o.isMesh) o.material = MAT.locked; });
   return obj;

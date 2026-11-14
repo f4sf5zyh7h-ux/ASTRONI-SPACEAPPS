@@ -50,6 +50,7 @@ export function createIntroScene() {
   const mission = missionData.missions.find((m) => m.id === state.missionId) ?? missionData.missions[0];
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x000000);
+  scene.userData.envIntensity = 0.2; // space: little reflected light
   const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 20000);
   addSpaceLighting(scene);
   const stars = createStarfield();

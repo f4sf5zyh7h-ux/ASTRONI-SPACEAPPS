@@ -6,6 +6,7 @@ import { transition } from '../ui/fade.js';
 export function createTitleScene() {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x000000);
+  scene.userData.envIntensity = 0.2; // space: little reflected light
   const camera = new THREE.PerspectiveCamera(45, 1, 0.5, 20000);
   addSpaceLighting(scene);
   const stars = createStarfield();
