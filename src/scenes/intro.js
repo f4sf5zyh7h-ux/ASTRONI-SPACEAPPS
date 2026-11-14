@@ -202,10 +202,14 @@ export function createIntroScene() {
       window.removeEventListener('keydown', onKey);
     },
     update(dt) {
-      t += dt;
+      // If the next line (or the briefing) is due but the voice is still talking,
+      // slow the cutscene right down until it finishes, so lines never cut each other off.
+      const nextDue = next < LINES.length ? LINES[next][0] : BRIEF_T;
+      const waiting = !briefed && t >= nextDue && narrator.isSpeaking();
+      t += waiting ? dt * 0.08 : dt;
       earth.userData.tick(dt);
 
-      while (!briefed && next < LINES.length && t >= LINES[next][0]) {
+      if (!briefed && next < LINES.length && t >= LINES[next][0] && !narrator.isSpeaking()) {
         const [, who, text] = LINES[next++];
         narrator.say(text, who, `intro-${next}`); // recorded clip public/audio/intro-N.mp3 if present
         if (next === 2) {
@@ -243,7 +247,7 @@ export function createIntroScene() {
       camera.lookAt(look);
       stars.position.copy(camera.position);
 
-      if (!briefed && t >= BRIEF_T) showBrief();
+      if (!briefed && t >= BRIEF_T && !narrator.isSpeaking()) showBrief();
     },
   };
 }

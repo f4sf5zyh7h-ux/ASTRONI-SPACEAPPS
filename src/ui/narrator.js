@@ -93,7 +93,20 @@ export function createNarrator(ui) {
   ui.appendChild(box);
 
   let clip = null;
+  // Is a line still being spoken? `token` makes sure a cancelled line's late
+  // "ended" event can't clear the flag for the line that replaced it.
+  let busy = false;
+  let token = 0;
+  let safety;
+  const done = (t) => {
+    if (t !== token) return;
+    busy = false;
+    clearTimeout(safety);
+  };
   const stopAll = () => {
+    token++;
+    busy = false;
+    clearTimeout(safety);
     synth?.cancel();
     clip?.pause();
     clip = null;
@@ -111,9 +124,11 @@ export function createNarrator(ui) {
   };
   ui.appendChild(toggle);
 
-  const speak = (text, who) => {
-    if (!synth) return;
+  const speak = (text, who, t) => {
+    if (!synth || t !== token) return done(t);
     const u = new SpeechSynthesisUtterance(text);
+    u.onend = () => done(t);
+    u.onerror = () => done(t);
     if (bestVoice) u.voice = bestVoice;
     // Natural voices sound best untouched; only nudge the robotic ones.
     const natural = bestVoice && /natural|google/i.test(bestVoice.name);
@@ -132,13 +147,24 @@ export function createNarrator(ui) {
       box.classList.add('show');
       if (!voiceOn) return;
       stopAll();
+      const t = token;
+      busy = true;
+      // Never wait forever if the browser drops the "ended" event: ~110 ms per character + slack.
+      safety = setTimeout(() => done(t), 3000 + text.length * 110);
       radioBeep();
       if (id && recorded.includes(id)) {
-        clip = await playRecorded(id, () => {});
-        if (clip) return;
+        const c = await playRecorded(id, () => {});
+        if (t !== token) return c?.pause();
+        if (c) {
+          clip = c;
+          c.addEventListener('ended', () => done(t), { once: true });
+          return;
+        }
       }
-      setTimeout(() => speak(text, who), 220); // after the beep
+      setTimeout(() => speak(text, who, t), 220); // after the beep
     },
+    /** True while the current line is still being spoken. */
+    isSpeaking: () => busy,
     hide() {
       box.classList.remove('show');
     },
