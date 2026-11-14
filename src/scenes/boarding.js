@@ -3,7 +3,7 @@ import { PointerLockControls } from 'three/addons/controls/PointerLockControls.j
 import { parts } from '../data/catalog.js';
 import { buildRocket, hullRadiusAt } from '../render/rocketMesh.js';
 import { createPadSetting } from '../render/padSetting.js';
-import { createLaunchPad, padBase } from '../render/launchPad.js';
+import { createLaunchPad, padBase, addPadVehicles } from '../render/launchPad.js';
 import { transition } from '../ui/fade.js';
 import { state } from '../state.js';
 import { casingDesign } from '../data/designs.js';
@@ -42,6 +42,7 @@ export function createBoardingScene() {
   if (hatchNode) hatchNode.rotation.y = 1.7; // the door is already open when you arrive
   const hatch = new THREE.Vector3(1.05, capY + 1.4, 0);
   const armY = capY + 0.9; // walkway floor just below the hatch sill
+  addPadVehicles(scene, 'boarding');
   const pad = createLaunchPad(scene, { armY, armTipX: 1.25, towerH: armY + 9, radiusAt: (y) => hullRadiusAt(design, parts, rocket, y - BASE) });
 
   // Warm light inside the capsule so the cabin isn't black.

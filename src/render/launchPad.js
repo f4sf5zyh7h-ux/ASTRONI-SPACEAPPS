@@ -192,3 +192,27 @@ function fitModelPad(scene, model, { armY, radiusAt }) {
     },
   };
 }
+
+/**
+ * Ground vehicles (human-modelled) around the pad, on the 300 m pad model's hardstand.
+ * 'boarding': the crew van that brought the astronauts, fire truck on standby, fuel truck at
+ * the propellant farm, command truck, crawler parked on the crawlerway.
+ * 'launch': the pad is cleared; only the far-off command truck and crawler remain.
+ */
+export function addPadVehicles(scene, mode = 'boarding') {
+  const spots = [
+    ['crawler-transporter', -2, -96, Math.PI / 2, true],
+    ['command-truck', -52, 26, 0.6, true],
+    ['crew-van', -22, 48, -0.4, false],
+    ['fire-truck', -40, -30, 1.2, false],
+    ['fuel-truck', 46, 38, Math.PI / 2, false],
+  ];
+  for (const [id, x, z, ry, staysForLaunch] of spots) {
+    if (mode === 'launch' && !staysForLaunch) continue;
+    const v = getModel(id);
+    if (!v) continue;
+    v.position.set(x, 0, z);
+    v.rotation.y = ry;
+    scene.add(v);
+  }
+}

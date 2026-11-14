@@ -4,7 +4,7 @@ import { casingDesign } from '../data/designs.js';
 import { simulateMission, missionLegs } from '../physics/mission.js';
 import { buildRocket, hullRadiusAt } from '../render/rocketMesh.js';
 import { createAurora } from '../render/aurora.js';
-import { createLaunchPad, padBase } from '../render/launchPad.js';
+import { createLaunchPad, padBase, addPadVehicles } from '../render/launchPad.js';
 import { createPadSetting } from '../render/padSetting.js';
 import { createEarthLayer } from '../render/earthLayer.js';
 import { createNarrator } from '../ui/narrator.js';
@@ -84,6 +84,7 @@ export function createLaunchScene() {
   const capY = BASE + rocket.objects[capIndex].position.y;
   const padObjects = new THREE.Group();
   scene.add(padObjects);
+  addPadVehicles(padObjects, 'launch');
   const pad = createLaunchPad(padObjects, {
     armY: capY + 0.9, armTipX: 1.25, towerH: capY + 9.9,
     radiusAt: (y) => hullRadiusAt(design, parts, rocket, y - BASE),
