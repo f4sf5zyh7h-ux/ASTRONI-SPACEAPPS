@@ -358,3 +358,12 @@ Crew must return for a passing grade. Show the formula breakdown on the debrief 
 **Saturday build order:** physics + parts → workshop with pad/tower → whole journey in rough primitives (target 16:00, deploy) → polish (cutscenes, commentary, models).
 
 **Extra models wanted from the human (else primitives):** launch pad + tower with stairs, capsule interior (seat, control pad, window), data module, debris fragment, Moon / dead satellite for Missions 2–3.
+
+## 17. Balancing outcome (2026-11-14, approved)
+
+- **Reference design** (`src/data/designs.js`): crew section + cargo module (RCS ×4, solar ×2, antenna, battery) + adapter-L-M + upper stage (tank-l, engine-mount-L with 1 engine-vacuum) + decoupler-L + first stage (4× tank-l, 4 fins, engine-mount-L with 9 engine-booster). Δv 9.90 km/s, $233M, 602 t, liftoff TWR 1.30.
+- Standard ✅ (171 m/s spare), Patient ✅, **Fast ❌ by 25 m/s**. Fast is fixed by trimming upper-section mass (≈ +130 m/s per tonne removed), not by a bigger rocket. This is intended (teaches upper-stage mass sensitivity).
+- Price changes: engine-booster $6M → $5M, tank-l $12M → $10M.
+- RCS block: 50 kg dry + 150 kg monoprop. 4 blocks give enough for the 50 m/s rendezvous; 2 do not.
+- Engines and the engine mount allow a decoupler below them (an interstage wraps the engines).
+- `node scripts/balance.mjs '<overrides json>'` prints the balancing table; `npm test` locks the behaviour in.

@@ -1,0 +1,47 @@
+{
+  "_note": "Representative values for hardware classes, rounded for gameplay. SI units: metres, kilograms, newtons, seconds. Cost in $M. Heights marked 'est' in CLAUDE.md §14.12 are estimates. Stack parts: sizeTop/sizeBottom must match neighbours (S=1.25 m, M=2.5 m, L=3.75 m). Radial parts attach to a stack part's side nodes.",
+  "parts": [
+    { "id": "capsule-2", "name": "Crew Capsule (2 seats)", "category": "crew", "sizeTop": "S", "sizeBottom": "M", "height": 3.5, "mass": 8000, "cost": 60, "seats": 2, "slots": 4, "lifeSupportH": 72, "hatch": true },
+    { "id": "cargo-module", "name": "Cargo Module", "category": "crew", "sizeTop": "M", "sizeBottom": "M", "height": 3.0, "mass": 1500, "cost": 8, "slots": 6 },
+    { "id": "heat-shield", "name": "Heat Shield", "category": "crew", "sizeTop": "M", "sizeBottom": "M", "height": 0.4, "mass": 1200, "cost": 10, "role": "heat-shield" },
+    { "id": "parachutes", "name": "Parachutes", "category": "crew", "sizeTop": "S", "sizeBottom": "S", "height": 0.6, "mass": 400, "cost": 3, "role": "parachutes" },
+    { "id": "docking-port", "name": "Docking Port", "category": "crew", "sizeTop": "S", "sizeBottom": "S", "height": 0.5, "mass": 300, "cost": 3, "role": "docking" },
+
+    { "id": "engine-booster", "name": "Booster Engine", "category": "engines", "sizeTop": "M", "sizeBottom": "M", "height": 2.4, "mass": 470, "cost": 5, "fuel": "kerolox", "thrustSL": 850000, "thrustVac": 914000, "ispSL": 282, "ispVac": 311 },
+    { "id": "engine-vacuum", "name": "Vacuum Engine", "category": "engines", "sizeTop": "M", "sizeBottom": "M", "height": 3.0, "mass": 500, "cost": 15, "fuel": "kerolox", "thrustSL": 0, "thrustVac": 980000, "ispSL": 0, "ispVac": 348, "vacuumOnly": true },
+    { "id": "engine-hydrolox", "name": "Hydrolox Engine", "category": "engines", "sizeTop": "S", "sizeBottom": "S", "height": 2.0, "mass": 300, "cost": 25, "fuel": "hydrolox", "thrustSL": 0, "thrustVac": 110000, "ispSL": 0, "ispVac": 450, "vacuumOnly": true, "lockedUntil": 2 },
+    { "id": "srb", "name": "Solid Rocket Booster", "category": "engines", "radial": true, "height": 16.0, "diameter": 1.25, "mass": 6000, "propellant": 34000, "cost": 10, "fuel": "solid", "thrustSL": 1500000, "thrustVac": 1600000, "ispSL": 250, "ispVac": 268, "lockedUntil": 2 },
+    { "id": "rcs", "name": "RCS Thruster Block", "category": "engines", "radial": true, "height": 0.4, "mass": 50, "monoprop": 150, "cost": 4, "thrustVac": 4000, "ispVac": 230, "role": "rcs" },
+    { "id": "engine-mount-L", "name": "Engine Mount (L, up to 9 engines)", "category": "engines", "sizeTop": "L", "sizeBottom": "L", "height": 1.0, "mass": 1000, "cost": 2, "engineCapacity": 9, "engineSize": "M" },
+
+    { "id": "tank-s", "name": "Fuel Tank S", "category": "tanks", "sizeTop": "S", "sizeBottom": "S", "height": 3.5, "mass": 400, "propellant": 4000, "cost": 2, "fuel": "kerolox" },
+    { "id": "tank-m-short", "name": "Fuel Tank M (short)", "category": "tanks", "sizeTop": "M", "sizeBottom": "M", "height": 3.2, "mass": 1000, "propellant": 15000, "cost": 3, "fuel": "kerolox" },
+    { "id": "tank-m-long", "name": "Fuel Tank M (long)", "category": "tanks", "sizeTop": "M", "sizeBottom": "M", "height": 7.9, "mass": 2500, "propellant": 37500, "cost": 6, "fuel": "kerolox" },
+    { "id": "tank-l", "name": "Fuel Tank L", "category": "tanks", "sizeTop": "L", "sizeBottom": "L", "height": 10.2, "mass": 6000, "propellant": 110000, "cost": 10, "fuel": "kerolox" },
+    { "id": "tank-m-hydrolox", "name": "Hydrolox Tank M", "category": "tanks", "sizeTop": "M", "sizeBottom": "M", "height": 6.8, "mass": 2000, "propellant": 12000, "cost": 10, "fuel": "hydrolox", "lockedUntil": 2 },
+
+    { "id": "decoupler-S", "name": "Decoupler S", "category": "structure", "sizeTop": "S", "sizeBottom": "S", "height": 0.4, "mass": 100, "cost": 2, "role": "decoupler" },
+    { "id": "decoupler-M", "name": "Decoupler M", "category": "structure", "sizeTop": "M", "sizeBottom": "M", "height": 0.4, "mass": 300, "cost": 2, "role": "decoupler" },
+    { "id": "decoupler-L", "name": "Decoupler L", "category": "structure", "sizeTop": "L", "sizeBottom": "L", "height": 0.5, "mass": 500, "cost": 2, "role": "decoupler" },
+    { "id": "radial-decoupler", "name": "Radial Decoupler", "category": "structure", "radial": true, "height": 0.8, "mass": 100, "cost": 2, "role": "decoupler", "lockedUntil": 2 },
+    { "id": "adapter-M-S", "name": "Adapter M→S", "category": "structure", "sizeTop": "S", "sizeBottom": "M", "height": 1.0, "mass": 200, "cost": 1 },
+    { "id": "adapter-L-M", "name": "Adapter L→M", "category": "structure", "sizeTop": "M", "sizeBottom": "L", "height": 1.0, "mass": 400, "cost": 1 },
+    { "id": "fin", "name": "Fin", "category": "structure", "radial": true, "height": 2.0, "mass": 100, "cost": 1, "role": "fin" },
+    { "id": "nose-cone", "name": "Nose Cone", "category": "structure", "sizeTop": null, "sizeBottom": "M", "height": 2.0, "mass": 300, "cost": 1 },
+    { "id": "fairing-M", "name": "Fairing M", "category": "structure", "sizeTop": null, "sizeBottom": "M", "height": 5.0, "mass": 1000, "cost": 4, "role": "fairing" },
+    { "id": "fuel-line", "name": "Fuel Line", "category": "structure", "radial": true, "height": 0.5, "mass": 10, "cost": 0.5, "lockedUntil": 3 },
+
+    { "id": "solar-panel", "name": "Solar Panel", "category": "systems", "radial": true, "height": 1.5, "mass": 300, "cost": 3, "role": "power" },
+    { "id": "battery", "name": "Battery Pack", "category": "systems", "radial": true, "height": 0.4, "mass": 200, "cost": 2, "role": "battery" },
+    { "id": "antenna-hg", "name": "High-Gain Antenna", "category": "systems", "radial": true, "height": 0.8, "mass": 150, "cost": 2, "role": "antenna" },
+    { "id": "debris-shield", "name": "Debris Shield (Whipple)", "category": "systems", "sizeTop": "M", "sizeBottom": "M", "height": 0.5, "mass": 600, "cost": 5, "role": "debris-shield" },
+    { "id": "robotic-arm", "name": "Robotic Arm", "category": "systems", "radial": true, "height": 3.0, "mass": 800, "cost": 15, "role": "arm", "lockedUntil": 2 }
+  ],
+  "items": [
+    { "id": "replacement-panel", "name": "Replacement Solar Panel", "mass": 800, "slots": 3, "required": true },
+    { "id": "toolkit", "name": "Toolkit", "mass": 50, "slots": 1, "required": true },
+    { "id": "tether", "name": "Safety Tether", "mass": 10, "slots": 1 },
+    { "id": "spare-battery", "name": "Spare Battery", "mass": 60, "slots": 1 },
+    { "id": "spare-o2", "name": "Spare O₂", "mass": 40, "slots": 1 }
+  ]
+}

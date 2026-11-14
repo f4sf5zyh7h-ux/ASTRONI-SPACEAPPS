@@ -1,0 +1,28 @@
+{
+  "missions": [
+    {
+      "id": "mission-1",
+      "name": "Debris Strike",
+      "satellite": "AURORA-7",
+      "budget": 250,
+      "deadlineH": 72,
+      "crew": 2,
+      "parkingAltitude": 400000,
+      "targetAltitude": 700000,
+      "deorbitPerigeeAltitude": 50000,
+      "launchDv": 9400,
+      "launchDvNote": "Typical requirement to reach low Earth orbit, including gravity and drag losses (representative).",
+      "rendezvousDv": 50,
+      "finWobblePenalty": 0.05,
+      "panelDelivered": 800,
+      "dataModuleMass": 20,
+      "approaches": [
+        { "id": "standard", "name": "Standard Hohmann", "transfer": "hohmann", "hours": 24, "blurb": "Two efficient burns and some waiting to line up. Balanced." },
+        { "id": "fast", "name": "Fast intercept", "transferDv": 350, "hours": 4, "blurb": "Burn harder to arrive in about 4 hours. Costs fuel, saves life support." },
+        { "id": "patient", "name": "Patient phasing", "transfer": "hohmann", "hours": 48, "blurb": "Same cheap burns but wait two days to line up. More time for things to go wrong." }
+      ]
+    },
+    { "id": "mission-2", "name": "Lunar Cargo Run", "locked": true },
+    { "id": "mission-3", "name": "Debris Cleanup", "locked": true }
+  ]
+}

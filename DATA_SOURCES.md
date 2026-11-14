@@ -6,7 +6,7 @@ A row is only marked **verified** after the value has been checked against the s
 
 | Data | Source (URL) | Used in | Date accessed | Status |
 |---|---|---|---|---|
-| Earth GM, radius, g | NASA Earth Fact Sheet (NSSDCA) | `src/data/nasa/earth.json` → `src/physics/orbits.js` | — | planned |
+| Earth GM, radius, g | https://nssdc.gsfc.nasa.gov/planetary/factsheet/earthfact.html | `src/data/nasa/earth.json` → `src/physics/orbits.js` | — | in use, not yet verified (site unreachable 2026-11-14) |
 | Debris impact speeds / counts | NASA Orbital Debris Program Office FAQ | `src/data/nasa/debris.json` → intro, debris-graze event | — | planned |
 | Whipple shield concept | NASA ODPO / hypervelocity impact pages | debris-shield tooltip | — | planned |
 | Solar flares (FLR) | NASA DONKI | `src/data/nasa/solar_flares.json` → solar-flare event | — | planned |

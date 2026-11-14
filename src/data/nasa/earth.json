@@ -1,0 +1,10 @@
+{
+  "source": "NASA NSSDCA Earth Fact Sheet",
+  "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/earthfact.html",
+  "verified": false,
+  "verifyNote": "Site unreachable (connection reset) on 2026-11-14. Re-check these values against the page before marking verified in DATA_SOURCES.md.",
+  "GM_km3_s2": 398600,
+  "volumetricMeanRadius_km": 6371.0,
+  "equatorialRadius_km": 6378.137,
+  "surfaceGravity_m_s2": 9.798
+}
