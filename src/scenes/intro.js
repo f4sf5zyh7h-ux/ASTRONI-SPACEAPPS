@@ -121,7 +121,7 @@ export function createIntroScene() {
     loc.remove();
     skip.remove();
     const quote = 'We depend on its data getting back to Earth. Go up, retrieve the data, fix the satellite, fly home.';
-    narrator.say(quote);
+    narrator.say(quote, 'Mission Control', 'intro-6');
     narrator.hide();
 
     const legs = missionLegs(mission, 'standard');
@@ -206,7 +206,7 @@ export function createIntroScene() {
 
       while (!briefed && next < LINES.length && t >= LINES[next][0]) {
         const [, who, text] = LINES[next++];
-        narrator.say(text, who);
+        narrator.say(text, who, `intro-${next}`); // recorded clip public/audio/intro-N.mp3 if present
         if (next === 2) {
           hud.className = 'intro-hud warn';
           hud.textContent = '⚠ COLLISION WARNING · DEBRIS ON CROSSING PATH';
