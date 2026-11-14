@@ -123,7 +123,7 @@ export function createLaunchScene() {
   let active = 0; // lowest attached section
   const dropped = [];
   const smoke = [];
-  const groundCam = new THREE.Vector3(-30, 14, 85); // clear of the water tower and propellant spheres
+  const groundCam = new THREE.Vector3(-22, 9, -95); // side-on: the tower (+X) stands clear to the right
   const camLook = new THREE.Vector3(0, 40, 0);
   const camOffset = new THREE.Vector3(45, 30, 85); // chase offset (smoothed)
   let mapMode = false;
