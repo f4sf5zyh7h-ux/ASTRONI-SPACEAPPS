@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { parts } from '../data/catalog.js';
-import { referenceDesign } from '../data/designs.js';
+import { casingDesign } from '../data/designs.js';
 import { simulateMission, missionLegs } from '../physics/mission.js';
 import { buildRocket, hullRadiusAt } from '../render/rocketMesh.js';
 import { createAurora } from '../render/aurora.js';
@@ -56,7 +56,7 @@ function createFlame(radius) {
 
 export function createLaunchScene() {
   const mission = missionData.missions.find((m) => m.id === state.missionId) ?? missionData.missions[0];
-  const design = state.design?.stack.some((e) => e.part === 'capsule-2') ? state.design : referenceDesign();
+  const design = state.design?.stack.some((e) => e.part === 'capsule-2') ? state.design : casingDesign();
   const approach = mission.approaches.find((a) => a.id === state.approach) ?? mission.approaches[0];
   const sim = simulateMission(design, parts, mission, approach.id);
   const report = sim.report;

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { DIAMETER } from '../data/catalog.js';
-import { createPartMesh, stackHeight } from './partMesh.js';
+import { createPartMesh, stackHeight, hangBelow } from './partMesh.js';
 
 /**
  * Assemble a design (stack listed top → bottom) into one Three.js group,
@@ -15,6 +15,15 @@ export function buildRocket(design, parts) {
     const entry = design.stack[i];
     const part = parts.get(entry.part);
     const h = stackHeight(part, entry, parts);
+
+    // Engines hanging out of a casing need room below: an interstage/skirt (sleeve) directly
+    // underneath swallows them; anything else leaves a gap (open thrust section).
+    const hang = hangBelow(entry, parts);
+    if (hang > 0) {
+      const below = parts.get(design.stack[i + 1]?.part);
+      const room = below?.sleeve ? below.height : 0;
+      y += Math.max(0, hang - room);
+    }
 
     const obj = createPartMesh(part, entry, parts);
     obj.position.y = y;

@@ -47,6 +47,36 @@ export function referenceDesign({ tanks = 4, engines = 9, fins = 4 } = {}) {
   };
 }
 
+/**
+ * Casing-based rocket (the workshop's "Example"): crew section on top, an upper stage casing
+ * with a thrust plate + vacuum engine + inner tanks, an interstage ring the nozzle sits in,
+ * first-stage casings (the bottom one has the 9-engine thrust plate and fins), engine skirt.
+ */
+export function casingDesign({
+  upperCasing = 'casing-l-long', upper = ['inner-tank-l-long', 'inner-tank-l-short', 'rack-l'],
+  firstN = 3, first = ['inner-tank-l-long', 'inner-tank-l-short'], boosters = 9, fins = 4,
+  topUp = { part: 'casing-l-short', tanks: ['inner-tank-l-short'] }, // extra first-stage fuel, or null
+} = {}) {
+  const crew = upperStack().filter((e) => !['tank-l', 'engine-mount-L'].includes(e.part));
+  const stack = [
+    ...crew,
+    { part: upperCasing, inside: [{ part: 'thrust-plate-l', engines: { part: 'engine-vacuum', count: 1 } }, ...upper.map((part) => ({ part }))] },
+    { part: 'interstage-l' },
+  ];
+  if (topUp) stack.push({ part: topUp.part, inside: topUp.tanks.map((part) => ({ part })) });
+  for (let i = 0; i < firstN; i++) {
+    const bottom = i === firstN - 1;
+    const plate = bottom ? [{ part: 'thrust-plate-l', engines: { part: 'engine-booster', count: boosters } }] : [];
+    stack.push({
+      part: 'casing-l-long',
+      inside: [...plate, ...first.map((part) => ({ part }))],
+      ...(bottom && fins ? { radial: [{ part: 'fin', count: fins }] } : {}),
+    });
+  }
+  stack.push({ part: 'skirt-l' });
+  return { stack, cargo: standardCargo() };
+}
+
 /** Naive single-stage rocket: everything in one stage. Must fail (teaches staging). */
 export function naiveSingleStage({ tanks = 4, engines = 9 } = {}) {
   const stack = upperStack().slice(0, 7); // crew section + cargo module + adapter

@@ -27,7 +27,35 @@ function entryContents(entry, parts) {
   const out = [{ part: parts.get(entry.part), count: 1 }];
   for (const r of entry.radial ?? []) out.push({ part: parts.get(r.part), count: r.count });
   if (entry.engines) out.push({ part: parts.get(entry.engines.part), count: entry.engines.count });
+  // Casings: internals listed bottom → top; a thrust plate carries its own engines.
+  for (const c of entry.inside ?? []) {
+    out.push({ part: parts.get(c.part), count: 1 });
+    if (c.engines) out.push({ part: parts.get(c.engines.part), count: c.engines.count });
+  }
   return out;
+}
+
+const SIZE_RANK = { S: 1, M: 2, L: 3 };
+
+/** Internals must fit the casing: size class, total height, thrust plate at the bottom, plate capacity. */
+export function validateInside(casing, inside, parts) {
+  const errors = [];
+  if (!casing.interior) return [`${casing.name} has no room inside: internals go in casings`];
+  let height = 0;
+  inside.forEach((c, k) => {
+    const ip = parts.get(c.part);
+    if (!ip) return errors.push(`Unknown part "${c.part}"`);
+    height += ip.height;
+    if (SIZE_RANK[ip.size] > SIZE_RANK[casing.interior.size]) errors.push(`${ip.name} is too wide for the ${casing.name}`);
+    if (ip.role === 'thrust-plate' && k !== 0) errors.push(`The ${ip.name} must be at the bottom of its casing so the engines can hang out`);
+    if (c.engines) {
+      const eng = parts.get(c.engines.part);
+      if (c.engines.count > ip.engineCapacity) errors.push(`${ip.name} holds at most ${ip.engineCapacity} engines`);
+      if (eng && SIZE_RANK[eng.sizeTop] > SIZE_RANK[ip.size]) errors.push(`${eng.name} is too big for the ${ip.name}`);
+    }
+  });
+  if (height > casing.interior.height + 1e-6) errors.push(`${casing.name} holds ${casing.interior.height} m but its contents are ${height.toFixed(1)} m tall`);
+  return errors;
 }
 
 /** Stacking rules: neighbours share a diameter, nothing hangs below an engine, mounts have room. */
@@ -48,6 +76,7 @@ export function validateStack(design, parts) {
       }
     }
 
+    if (entry.inside?.length) errors.push(...validateInside(p, entry.inside, parts));
     if (entry.engines) {
       const eng = parts.get(entry.engines.part);
       if (!p.engineCapacity) errors.push(`${p.name} can't hold extra engines`);

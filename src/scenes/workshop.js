@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { parts, DIAMETER } from '../data/catalog.js';
-import { referenceDesign, standardCargo } from '../data/designs.js';
+import { casingDesign, standardCargo } from '../data/designs.js';
 import { analyzeDesign } from '../physics/rocket.js';
 import { simulateMission, missionLegs } from '../physics/mission.js';
 import { buildRocket } from '../render/rocketMesh.js';
@@ -17,6 +17,7 @@ const RADIAL_ANGLE = Math.PI / 4; // first side part sits here (matches rocketMe
 
 const hullRadius = (p) => Math.max(DIAMETER[p.sizeTop] ?? 0, DIAMETER[p.sizeBottom] ?? 0) / 2 || 0.6;
 /** Stack parts big enough to carry side parts. */
+const SIZE_RANK = { S: 1, M: 2, L: 3 };
 const isBody = (p) =>
   !p.radial && p.sizeTop && p.sizeBottom && p.height >= 1 && p.category !== 'engines' && p.role !== 'decoupler' && !p.id.startsWith('adapter');
 
@@ -59,6 +60,7 @@ export function createWorkshopScene() {
     targetY = site.base + Math.max(3, rocket.height * 0.45);
     if (statsEl) refreshStats();
     if (hint) hint.style.display = design.stack.length ? 'none' : '';
+    setXray(xrayToggle);
   };
 
   const refreshStats = () => {
@@ -104,6 +106,25 @@ export function createWorkshopScene() {
     const nodes = [];
     const st = design.stack;
     const objs = rocket.objects;
+    // Internals go inside casings with room for them (thrust plates only into the bottom slot).
+    if (part.category === 'internals') {
+      st.forEach((e, i) => {
+        const p = parts.get(e.part);
+        if (!p.interior || SIZE_RANK[part.size] > SIZE_RANK[p.interior.size]) return;
+        const inside = e.inside ?? [];
+        const used = inside.reduce((t, c) => t + parts.get(c.part).height, 0);
+        const isPlate = part.role === 'thrust-plate';
+        if (isPlate && inside[0] && parts.get(inside[0].part).role === 'thrust-plate') return;
+        if (used + part.height > p.interior.height + 1e-6) return;
+        const y = site.base + objs[i].position.y + (isPlate ? 0 : used);
+        nodes.push({
+          kind: 'inside', r: (DIAMETER[p.interior.size] ?? 2.5) / 2 - 0.1, h: part.height,
+          pos: new THREE.Vector3(0, y + part.height / 2, 0), base: y,
+          apply: () => { e.inside = isPlate ? [{ part: part.id }, ...inside] : [...inside, { part: part.id }]; },
+        });
+      });
+      return nodes;
+    }
     if (part.radial) {
       st.forEach((e, i) => {
         const p = parts.get(e.part);
@@ -150,6 +171,18 @@ export function createWorkshopScene() {
           apply: () => { e.engines = e.engines ? { ...e.engines, count: e.engines.count + 1 } : { part: part.id, count: 1 }; },
         });
       });
+      // …or onto a casing's thrust plate (any engine no bigger than the plate).
+      st.forEach((e, i) => {
+        const plate = e.inside?.[0];
+        const pp = plate && parts.get(plate.part);
+        if (pp?.role !== 'thrust-plate' || SIZE_RANK[part.sizeTop] > SIZE_RANK[pp.size]) return;
+        if (plate.engines && (plate.engines.part !== part.id || plate.engines.count >= pp.engineCapacity)) return;
+        nodes.push({
+          kind: 'engine', r: 0.6,
+          pos: new THREE.Vector3(0, site.base + objs[i].position.y - 0.4, 0),
+          apply: () => { plate.engines = plate.engines ? { ...plate.engines, count: plate.engines.count + 1 } : { part: part.id, count: 1 }; },
+        });
+      });
     }
     return nodes;
   };
@@ -187,7 +220,9 @@ export function createWorkshopScene() {
     for (const node of nodes) {
       const m = node.kind === 'stack'
         ? new THREE.Mesh(new THREE.TorusGeometry(node.r + 0.25, 0.12, 8, 48), markerMat)
-        : new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 12), markerMat);
+        : node.kind === 'inside'
+          ? new THREE.Mesh(new THREE.CylinderGeometry(node.r, node.r, node.h, 32, 1, true), markerMat) // the free space it would fill
+          : new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 12), markerMat);
       if (node.kind === 'stack') m.rotation.x = Math.PI / 2;
       m.position.copy(node.pos);
       node.marker = m;
@@ -195,6 +230,7 @@ export function createWorkshopScene() {
     }
     scene.add(markers);
     drag = { part, ghost, nodes, markers, snapped: null };
+    if (part.category === 'internals' || part.category === 'engines') setXray(true);
     controls.enabled = false;
     document.body.classList.add('dragging');
     if (!nodes.length) toast(whyNoFit(part));
@@ -220,7 +256,9 @@ export function createWorkshopScene() {
     drag.snapped = best;
     const g = drag.ghost;
     g.rotation.set(0, 0, 0);
-    if (best) {
+    if (best?.kind === 'inside') {
+      g.position.set(0, best.base, 0);
+    } else if (best) {
       g.position.copy(best.kind === 'radial' ? best.pos : new THREE.Vector3(0, best.pos.y, 0));
       if (best.kind === 'radial') g.rotation.y = best.angle;
     } else {
@@ -242,6 +280,7 @@ export function createWorkshopScene() {
     drag = null;
     controls.enabled = true;
     document.body.classList.remove('dragging');
+    setXray(xrayToggle);
     if (node) commit(node.apply);
     else if (part) toast('Drop it on a glowing spot to attach it.');
   };
@@ -253,7 +292,12 @@ export function createWorkshopScene() {
     raycaster.setFromCamera(ndc, camera);
     const hit = raycaster.intersectObject(rocket.group, true)[0];
     let o = hit?.object;
-    while (o && o.userData.index === undefined) o = o.parent;
+    let engineHit = false;
+    while (o && o.userData.index === undefined) {
+      if (o.userData.engine) engineHit = true;
+      o = o.parent;
+    }
+    if (o) o.userData.hitEngine = engineHit;
     return o ?? null;
   };
 
@@ -270,8 +314,45 @@ export function createWorkshopScene() {
         // Engine mounts lose one engine per click, then the mount itself.
         entry.engines.count -= 1;
         if (entry.engines.count <= 0) delete entry.engines;
+      } else if (entry.inside?.length) {
+        // Casings empty out first: engines one at a time, then internals from the top down.
+        const plate = entry.inside[0];
+        if (o.userData.hitEngine && plate.engines) {
+          plate.engines.count -= 1;
+          if (plate.engines.count <= 0) delete plate.engines;
+        } else {
+          const top = entry.inside[entry.inside.length - 1];
+          if (top === plate && plate.engines) {
+            plate.engines.count -= 1;
+            if (plate.engines.count <= 0) delete plate.engines;
+          } else entry.inside.pop();
+        }
+        if (!entry.inside.length) delete entry.inside;
       } else {
         design.stack.splice(o.userData.index, 1);
+      }
+    });
+  };
+
+  // ---------- X-ray: fade casing shells to see the internals ----------
+  let xrayToggle = false;
+  const xrayMats = new Map();
+  const setXray = (on) => {
+    rocket.group.traverse((o) => {
+      if (!o.isMesh || !o.userData.shell) return;
+      if (on) {
+        if (!o.userData.solidMat) o.userData.solidMat = o.material;
+        const base = o.userData.solidMat;
+        if (!xrayMats.has(base)) {
+          const m = base.clone();
+          m.transparent = true;
+          m.opacity = 0.18;
+          m.depthWrite = false;
+          xrayMats.set(base, m);
+        }
+        o.material = xrayMats.get(base);
+      } else if (o.userData.solidMat) {
+        o.material = o.userData.solidMat;
       }
     });
   };
@@ -304,7 +385,18 @@ export function createWorkshopScene() {
     const entry = design.stack[o.userData.index];
     const p = parts.get(o.userData.radial ?? entry.part);
     const extra = o.userData.radial ? '' : entry.engines ? ` + ${entry.engines.count}× ${parts.get(entry.engines.part).name}` : '';
-    tip.innerHTML = `<b>${p.name}</b>${extra}<br><span class="muted">Right-click to remove${entry.engines && !o.userData.radial ? ' one engine' : ''}</span>`;
+    let body = '';
+    let action = 'Right-click to remove' + (entry.engines && !o.userData.radial ? ' one engine' : '');
+    if (p.interior && !o.userData.radial) {
+      // Casing readout: what's inside and how full it is.
+      const inside = entry.inside ?? [];
+      const used = inside.reduce((t, c) => t + parts.get(c.part).height, 0);
+      const list = inside.slice().reverse().map((c) => `${parts.get(c.part).name}${c.engines ? ` + ${c.engines.count}× ${parts.get(c.engines.part).name}` : ''}`);
+      body = `<div class="tip-fill"><i style="width:${Math.min(100, (used / p.interior.height) * 100)}%"></i></div>` +
+        `<span class="muted">${used.toFixed(1)} / ${p.interior.height} m used</span><br>${list.length ? list.join('<br>') : '<span class="muted">Empty: drag internals in</span>'}<br>`;
+      if (inside.length) action = 'Right-click to take out the top item';
+    }
+    tip.innerHTML = `<b>${p.name}</b>${extra}<br>${body}<span class="muted">${action}</span>`;
     tip.style.left = `${e.clientX + 16}px`;
     tip.style.top = `${e.clientY + 12}px`;
     tip.classList.add('show');
@@ -343,6 +435,7 @@ export function createWorkshopScene() {
         <button data-act="undo" title="Undo the last change (Ctrl+Z)">↶ Undo</button>
         <button data-act="clear" title="Remove everything">Clear</button>
         <button data-act="reference" title="Load a working example rocket">Example</button>
+        <button data-act="xray" title="See inside the casings">X-ray</button>
         <span class="ws-sym" title="How many copies of a side part are added at once">Side parts:
           ${[1, 2, 4].map((s) => `<button data-sym="${s}" class="${s === symmetry ? 'on' : ''}">×${s}</button>`).join('')}
         </span>
@@ -355,8 +448,9 @@ export function createWorkshopScene() {
           bar.querySelectorAll('[data-sym]').forEach((x) => x.classList.toggle('on', x === b));
         }
         if (b.dataset.act === 'undo') undo();
+        if (b.dataset.act === 'xray') { xrayToggle = !xrayToggle; b.classList.toggle('on', xrayToggle); setXray(xrayToggle); }
         if (b.dataset.act === 'clear' && design.stack.length) commit(() => (design.stack = []));
-        if (b.dataset.act === 'reference') commit(() => (design = referenceDesign()));
+        if (b.dataset.act === 'reference') commit(() => (design = casingDesign()));
         if (b.dataset.act === 'next') board();
       });
       ui.appendChild(bar);

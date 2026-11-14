@@ -6,7 +6,8 @@ import { tonnes, kms, kN, money } from './format.js';
 
 const TABS = [
   ['crew', 'Crew'],
-  ['tanks', 'Tanks'],
+  ['casings', 'Casings'],
+  ['internals', 'Inside'],
   ['engines', 'Engines'],
   ['structure', 'Structure'],
   ['systems', 'Systems'],
@@ -16,7 +17,8 @@ const TABS = [
 export function createCatalog(ui, onGrab) {
   const el = document.createElement('div');
   el.className = 'ws-catalog panel';
-  const thumbs = partThumbnails(partList, parts);
+  const shown = partList.filter((p) => !p.legacy); // old all-in-one tanks stay out of the catalogue
+  const thumbs = partThumbnails(shown, parts);
   let tab = 'crew';
 
   const info = document.createElement('div');
@@ -26,7 +28,7 @@ export function createCatalog(ui, onGrab) {
   const render = () => {
     el.innerHTML = `
       <div class="ws-tabs">${TABS.map(([id, label]) => `<button data-tab="${id}" class="${id === tab ? 'on' : ''}">${label}</button>`).join('')}</div>
-      <div class="ws-grid">${partList
+      <div class="ws-grid">${shown
         .filter((p) => p.category === tab)
         .map((p) => {
           const locked = isLocked(p);
@@ -68,13 +70,17 @@ export function createCatalog(ui, onGrab) {
 
 function partDetails(p) {
   const rows = [];
-  const size = p.radial ? 'Side-mounted' : [p.sizeBottom, p.sizeTop].filter(Boolean).map((s) => `${DIAMETER[s]} m`).join(' → ');
+  const size = p.radial ? 'Side-mounted'
+    : p.category === 'internals' ? `Fits casings ${p.size} and up`
+    : [p.sizeBottom, p.sizeTop].filter(Boolean).map((s) => `${DIAMETER[s]} m`).join(' → ');
   rows.push(['Size', `${size} · ${p.height} m tall`]);
   rows.push(['Mass', tonnes(p.mass, 2) + (p.propellant ? ` + ${tonnes(p.propellant, 1)} fuel` : '') + (p.monoprop ? ` + ${tonnes(p.monoprop, 2)} RCS fuel` : '')]);
   if (p.thrustVac) rows.push(['Thrust', p.thrustSL ? `${kN(p.thrustSL)} at sea level / ${kN(p.thrustVac)} in space` : `${kN(p.thrustVac)} (space only)`]);
   if (p.ispVac) rows.push(['Efficiency (Isp)', p.ispSL ? `${p.ispSL} s sea level / ${p.ispVac} s space` : `${p.ispVac} s`]);
   if (p.seats) rows.push(['Seats', p.seats]);
   if (p.slots) rows.push(['Storage', `${p.slots} slots`]);
+  if (p.interior) rows.push(['Room inside', `${p.interior.height} m tall, ${DIAMETER[p.interior.size]} m wide`]);
+  if (p.sleeve) rows.push(['Engine room', `nozzles up to ${p.height} m long fit inside`]);
   if (p.engineCapacity) rows.push(['Holds', `up to ${p.engineCapacity} engines`]);
   rows.push(['Cost', money(p.cost)]);
   return `<b>${p.name}</b><p>${PART_INFO[p.id] ?? ''}</p>

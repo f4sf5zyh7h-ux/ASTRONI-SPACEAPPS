@@ -32,3 +32,27 @@ export const PART_INFO = {
   'debris-shield': 'A Whipple shield: a thin outer layer that shatters small debris before it hits the hull.',
   'robotic-arm': 'Grabs and holds things, making the repair much easier.',
 };
+
+// Casings (structural shells) and the internals that go inside them.
+const CASING = 'A hollow structural shell. Drag internals (tanks, thrust plate, racks) inside it. The shell carries the loads, so the tanks inside can be thin and light.';
+for (const s of ['s', 'm', 'l']) for (const len of ['short', 'med', 'long']) PART_INFO[`casing-${s}-${len}`] = CASING;
+Object.assign(PART_INFO, {
+  'inner-tank-s-short': 'Small kerosene + oxygen tank that sits inside a casing.',
+  'inner-tank-s-long': 'Small kerosene + oxygen tank that sits inside a casing.',
+  'inner-tank-m-short': 'Medium fuel tank for inside a casing. More fuel = more Δv, but more weight to lift.',
+  'inner-tank-m-long': 'Medium fuel tank for inside a casing. More fuel = more Δv, but more weight to lift.',
+  'inner-tank-l-short': 'Large fuel tank (about 40 t of fuel) for inside an L casing.',
+  'inner-tank-l-long': 'Large fuel tank (about 80 t of fuel) for inside an L casing.',
+  'inner-tank-h2-m': 'Hydrogen is very light, so it needs a huge tank for little mass. Needs a hydrogen engine.',
+  'inner-tank-rcs': 'Extra fuel for the small RCS steering thrusters. Useful if you only fit a few RCS blocks.',
+  'rack-m': 'Flight computers and batteries. Keeps the ship powered when the solar panels are in shadow.',
+  'rack-l': 'Flight computers and batteries. Keeps the ship powered when the solar panels are in shadow.',
+  'thrust-plate-s': 'Goes at the bottom of a casing. Bolt 1 engine to it; the engine hangs out of the bottom.',
+  'thrust-plate-m': 'Goes at the bottom of a casing. Holds up to 3 engines that hang out of the bottom.',
+  'thrust-plate-l': 'Goes at the bottom of a casing. Holds up to 9 engines (like a real first stage). The push of the engines goes into the plate, then the casing.',
+  'interstage-s': 'A hollow ring between stages: the engine of the stage above sits inside it. It separates and falls away with the empty stage below.',
+  'interstage-m': 'A hollow ring between stages: the engine of the stage above sits inside it. It separates and falls away with the empty stage below.',
+  'interstage-l': 'A hollow ring between stages: the engine of the stage above sits inside it. It separates and falls away with the empty stage below.',
+  'skirt-m': 'An open ring at the very bottom that protects the engines while the rocket stands on the pad.',
+  'skirt-l': 'An open ring at the very bottom that protects the engines while the rocket stands on the pad.',
+});

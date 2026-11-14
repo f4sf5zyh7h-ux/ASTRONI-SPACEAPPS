@@ -37,6 +37,53 @@ export function stackHeight(part, entry, parts) {
   return part.height + (eng ? eng.height : 0);
 }
 
+/** How far a casing's engines hang below its bottom (thrust plate engines), 0 if none. */
+export function hangBelow(entry, parts) {
+  const plate = entry?.inside?.[0];
+  if (!plate?.engines?.count) return 0;
+  return parts.get(plate.engines.part)?.height ?? 0;
+}
+
+/**
+ * Internals of a casing, stacked from its floor (bottom → top). A thrust plate carries its
+ * engines: at the plate model's engine-N empties when present, otherwise in a ring layout.
+ * Engines hang below y = 0 (out of the bottom of the casing). Returns a Group.
+ */
+function buildInside(casing, inside, parts) {
+  const g = new THREE.Group();
+  g.name = 'inside';
+  let y = 0;
+  for (const c of inside) {
+    const ip = parts.get(c.part);
+    if (!ip) continue;
+    const obj = modelFor(ip) ?? stackPart({ ...ip, sizeTop: ip.size, sizeBottom: ip.size }, null, parts);
+    obj.position.y = y;
+    g.add(obj);
+    if (c.engines?.count) {
+      const eng = parts.get(c.engines.part);
+      const empties = [];
+      for (let k = 1; k <= c.engines.count; k++) {
+        const e = obj.getObjectByName(`engine-${k}`);
+        if (e) empties.push([e.position.x, e.position.z]);
+      }
+      const r = (DIAMETER[ip.size] ?? 2.5) / 2;
+      const layout = empties.length === c.engines.count ? empties : engineLayout(c.engines.count, r);
+      const slot = Math.min(minSpacing(layout), r * 2) * 0.95;
+      const width = DIAMETER[eng.sizeBottom] ?? 2.5;
+      const squeeze = Math.min(1, slot / width);
+      for (const [x, z] of layout) {
+        const e = modelFor(eng) ?? engine(eng);
+        if (e.userData.isModel) e.scale.set(squeeze, 1, squeeze);
+        e.position.set(x, y - eng.height, z); // nozzle exit at the bottom, top flange under the plate
+        e.userData.engine = true;
+        g.add(e);
+      }
+    }
+    y += ip.height;
+  }
+  return g;
+}
+
 /** Engine bell + small thrust block. Vacuum engines get a much wider bell. */
 function engine(part) {
   const g = new THREE.Group();
@@ -233,7 +280,16 @@ export function createPartMesh(part, entry, parts, { locked = false } = {}) {
   // Engine mounts stay procedural because their engine count changes per design.
   let model = entry?.engines ? null : modelFor(part);
   if (model && part.radial) model = alignRadial(model, part.model ?? part.id);
-  const obj = model ?? (part.radial ? radialPart(part) : stackPart(part, entry, parts));
+  let obj = model ?? (part.radial ? radialPart(part) : stackPart(part, entry, parts));
+  // Interstages and skirts hide the engines inside them: let X-ray see through them too.
+  if (part.sleeve || part.interior) obj.traverse((o) => { if (o.isMesh) o.userData.shell = true; });
+  if (entry?.inside?.length) {
+    // Casing: shell + internals. The shell is tagged so the workshop's X-ray can fade it.
+    const g = new THREE.Group();
+    obj.traverse((o) => { if (o.isMesh) o.userData.shell = true; });
+    g.add(obj, buildInside(part, entry.inside, parts));
+    obj = g;
+  }
   if (locked) obj.traverse((o) => { if (o.isMesh) o.material = MAT.locked; });
   return obj;
 }

@@ -6,7 +6,7 @@ import { createPadSetting } from '../render/padSetting.js';
 import { createLaunchPad, padBase } from '../render/launchPad.js';
 import { transition } from '../ui/fade.js';
 import { state } from '../state.js';
-import { referenceDesign } from '../data/designs.js';
+import { casingDesign } from '../data/designs.js';
 import { createControlPad } from '../ui/controlPad.js';
 import missionData from '../data/missions.json';
 
@@ -20,7 +20,7 @@ const ease = (u) => u * u * (3 - 2 * u);
 /** Boarding: first person at the top of the service tower; walk the access arm, climb in, sit down. */
 export function createBoardingScene() {
   // Dev shortcut ?scene=boarding has no design yet: use the example rocket.
-  const design = state.design?.stack.some((e) => e.part === 'capsule-2') ? state.design : referenceDesign();
+  const design = state.design?.stack.some((e) => e.part === 'capsule-2') ? state.design : casingDesign();
   const scene = new THREE.Scene();
   scene.userData.envIntensity = 0.5;
   const camera = new THREE.PerspectiveCamera(70, 1, 0.03, 20000);
