@@ -16,7 +16,7 @@ const DEBRIS_TRAVEL = 4.5; // seconds of (slow-motion) approach on screen
 const LINES = [
   [2.0, 'Mission Control', 'AURORA-7, telemetry looks good. Science downlink at one hundred percent.'],
   [6.5, 'Mission Control', 'Hold on. Tracking shows a debris fragment on a crossing path.'],
-  [9.5, 'Mission Control', 'Debris hits at around ten kilometres per second. That's about ten times faster than a rifle bullet.'],
+  [9.5, 'Mission Control', 'Debris hits at around ten kilometres per second. That’s about ten times faster than a rifle bullet.'],
   [15.0, 'Mission Control', 'Impact! Solar array B is gone. AURORA-7 is running on battery.'],
   [20.0, 'Mission Control', 'The battery lasts seventy-two hours. Then the instruments shut down, and the data on board is lost.'],
 ];
