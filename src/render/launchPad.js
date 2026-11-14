@@ -153,6 +153,10 @@ function fitModelPad(scene, model, { armY, radiusAt }) {
     if (tip) tip.position.x = -6.25 + (Math.max(0.3, radiusAt(y)) - seal);
   };
 
+  // The tip's seal plate is a solid panel across the walkway: it blocks the way to the hatch.
+  const seal = node('crew-access-arm-tip-seal');
+  if (seal) seal.visible = false;
+
   const crewCarriage = node('crew-access-arm-carriage');
   const crewArm = node('crew-access-arm');
   if (crewCarriage) crewCarriage.position.y = Math.max(6, armY);

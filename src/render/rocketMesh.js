@@ -41,6 +41,9 @@ export function buildRocket(design, parts) {
     const hang = i < design.stack.length - 1 ? hangBelow(entry, parts) : 0;
     if (hang > 0) y += Math.max(0, hang - openTop(design.stack[i + 1], parts));
 
+    // The heat shield's domed underside nests down into the ring below it (no floating gap).
+    if (part.role === 'heat-shield' && i < design.stack.length - 1) y -= Math.min(0.3, part.height * 0.7);
+
     const obj = createPartMesh(part, entry, parts);
     if (entry.flip) {
       // Upside-down adapter: rotate about its middle so it still spans y … y + h.
