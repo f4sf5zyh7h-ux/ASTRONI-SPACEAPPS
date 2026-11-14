@@ -198,6 +198,8 @@ Write a Vitest test that builds this design from parts.json and asserts Δv ≥ 
 
 ## 7. Game flow (scenes)
 
+> **The scene ORDER and boarding/flight/EVA presentation are superseded by §16.** Details below (workshop panels, debrief content, failure explanations) still apply.
+
 1. **Intro cinematic** (in-engine, ~20 s, skippable): Earth, debris streak, impact sparks, tumbling satellite with broken array; mission-control text overlay.
 2. **Mission select:** Mission 1 playable; Missions 2–3 visible but locked ("Lunar cargo run", "Debris cleanup").
 3. **Briefing:** story, objectives, constraints, required Δv bar, budget. Button: "Go to workshop".
@@ -336,3 +338,23 @@ Crew must return for a passing grade. Show the formula breakdown on the debrief 
 
 - Talk through each phase before building it; after each phase, stop and tell the human what to check in the browser.
 - The human builds GLB models (AURORA-7 satellite is top priority) in parallel. AURORA-7 GLB should contain named nodes: `bus`, `array_intact`, `array_broken`, empties `hotspot_bolt_1..4`, `hotspot_cable`, `hotspot_mount`. Export: glTF binary, +Y up, 1 unit = 1 m, transforms applied, origin at bottom centre.
+
+## 16. Game flow v2 (human's vision, 2026-11-14) — overrides §7 order and §12 Tier placement
+
+1. **Title screen:** ASTRONI name → "Continue".
+2. **Mission select in 3D space:** the broken AURORA-7 floats in space labelled "Mission 1". "Next" flies the camera a long way through space to the Mission 2 object (the Moon, "Lunar cargo run"), then Mission 3 (a debris cloud around a dead satellite, "Debris cleanup"). Missions 2–3 are locked; the player picks Mission 1.
+3. **Intro cutscene (after picking Mission 1):** satellite in orbit is hit by a **debris fragment** (it may look rock-like, but the commentary says "debris": realistic at 700 km and matches the NASA ODPO data). Mission-control commentary as on-screen text, with optional browser speech synthesis. Ends with the brief: "We depend on its data getting back to Earth. Go up, retrieve the data, fix the satellite, fly home."
+4. **Workshop:** a predefined launch pad with a service tower and stairs. Build the rocket from parts; all calculations and configuration live here (§4, §5, §7.4).
+5. **Boarding (playable first person):** start at the top of the tower stairs by the open hatch, walk in (WASD + mouse look), take the seat.
+6. **Cockpit:** an in-world control pad (screens drawn in 3D, not HTML overlay) shows ship data. It holds the pre-launch checklist, the **approach-orbit choice** (§6) and a cargo check (this replaces the separate loadout screen). Press **Launch**.
+7. **Launch cutscene (outside view):** countdown, liftoff, **the player's own stages separating as designed**, then fast-forward to near the satellite. **Random events** (§8) appear as alarms and decisions on the control pad during the fast-forward.
+8. **Suit-up (interactive, inside the ship):** prepare the spacesuit, depressurise, open the hatch.
+9. **EVA (first person, manual):** move along the tether, replace the solar panel, and **remove the data module** (new objective) and carry it back.
+10. **Return:** re-enter the ship, de-orbit burn from the control pad, then a **re-entry and landing cutscene** (failures such as a missing heat shield or parachutes are shown here).
+11. **Debrief / final report** (§7.11, §9). **Science now counts only if the data module gets home.**
+
+**Cut for Saturday:** rendezvous timing mini-game (fast-forward goes straight to the satellite; may return Sunday).
+
+**Saturday build order:** physics + parts → workshop with pad/tower → whole journey in rough primitives (target 16:00, deploy) → polish (cutscenes, commentary, models).
+
+**Extra models wanted from the human (else primitives):** launch pad + tower with stairs, capsule interior (seat, control pad, window), data module, debris fragment, Moon / dead satellite for Missions 2–3.
