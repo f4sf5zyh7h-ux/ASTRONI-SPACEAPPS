@@ -13,7 +13,7 @@ function dia(p) {
   return `${top ?? bottom} m`;
 }
 
-const rows = data.parts.map((p) => `| \`${p.id}.glb\` | ${p.name} | ${dia(p)} | ${p.height} m | ${p.lockedUntil ? `later (Mission ${p.lockedUntil})` : 'Mission 1'} |`);
+const rows = data.parts.map((p) => `| \`${p.model ?? p.id}.glb\` | ${p.name} | ${dia(p)} | ${p.height} m | ${p.lockedUntil ? `later (Mission ${p.lockedUntil})` : 'Mission 1'} |`);
 
 const md = `# Model specs
 
@@ -43,7 +43,7 @@ Notes:
 
 | File | What | Notes |
 |---|---|---|
-| \`aurora-7.glb\` | The damaged satellite | **Top priority.** Named objects: \`bus\`, \`array_intact\`, \`array_broken\`; empties \`hotspot_bolt_1\`…\`hotspot_bolt_4\`, \`hotspot_cable\`, \`hotspot_mount\`, \`hotspot_data\` (the data module). Rough size: 2 × 2 × 3 m body, solar arrays about 2.5 × 8 m. |
+| \`satellite-aurora7.glb\` | The damaged satellite | Done. The game shatters \`array-intact-2\` in the intro. |
 | \`replacement-panel.glb\` | New solar panel (folded) | Must fit inside the 2.5 m cargo module. |
 | \`data-module.glb\` | Data module the astronaut carries home | Shoebox-to-suitcase size. |
 | \`launch-pad.glb\` | Pad + service tower with stairs | Tower about 70 m tall. Include a walkway at capsule-hatch height (about 62 m above the pad). |
