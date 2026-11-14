@@ -347,3 +347,16 @@ kbd {
   position: absolute; right: 24px; top: 50%; transform: translateY(-50%); width: min(420px, calc(100% - 48px));
   border-radius: 0; border-width: 2px; font-size: 21px; line-height: 1.2;
 }
+
+/* ---------- Launch cutscene HUD ---------- */
+.launch-hud {
+  position: absolute; left: 20px; top: 20px; width: 260px; padding: 12px 14px; pointer-events: none;
+  background: rgba(5,7,13,.6); border-left: 3px solid var(--accent); font-size: 22px; line-height: 1.25;
+}
+.lh-clock { font: 16px/1.6 var(--pixel); color: var(--accent); margin-bottom: 6px; }
+.lh-row { display: flex; justify-content: space-between; }
+.lh-row span { color: var(--muted); }
+.lh-phase { margin-top: 8px; font: 10px/1.6 var(--pixel); color: var(--warn, #ffcc66); }
+.leg-table { width: 100%; border-collapse: collapse; font-size: 20px; margin: 10px 0; }
+.leg-table td { padding: 3px 6px; border-bottom: 1px solid rgba(79,195,247,.15); }
+.leg-table td:first-child { text-transform: uppercase; font: 9px var(--pixel); }
