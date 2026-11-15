@@ -108,7 +108,7 @@ export function createReturnScene() {
     const hoursUsed = approach.hours + eva.minutes / 60 + 3 + flight.hours; // + delays from events
     // Science counts only if the data module came home (§16.11): 100% within 24 h → 40% at 72 h.
     const sciRaw = hoursUsed <= 24 ? 1 : Math.max(0.4, 1 - (0.6 * (hoursUsed - 24)) / 48);
-    const science = crewHome && eva.dataModule && eva.repaired ? sciRaw : 0;
+    const science = crewHome && eva.dataModule && eva.repaired ? sciRaw * (eva.scienceFactor ?? 1) : 0; // × what the system test found
     const budgetLeft = Math.max(0, mission.budget - report.cost);
     const timeBonus = crewHome ? Math.round(200 * Math.max(0, mission.deadlineH - hoursUsed) / mission.deadlineH) : 0;
     const rows = [
@@ -133,6 +133,7 @@ export function createReturnScene() {
     if (fate === 'burnup') causes.push(report.checks.capsuleSeparates ? 'There was no heat shield under the capsule. Re-entering at 7.5 km/s heats the air in front of it to thousands of degrees.' : 'The capsule could not separate from the rocket, so its heat shield was blocked. Put a decoupler directly below the heat shield.');
     if (fate === 'crash') causes.push('There were no parachutes. The capsule hit the sea at around 150 m/s instead of about 8 m/s.');
     if (!eva.repaired) causes.push('The solar panel was not fixed, so AURORA-7 stays on battery and its science ends.');
+    for (const tst of eva.tests ?? []) if (!tst.ok && tst.id !== 'data') causes.push(`System test: ${tst.fail} ${tst.id === 'power' ? 'The cut harness only shows up if you inspect closely with the arm camera.' : 'The dented radiator only shows up if you inspect closely with the arm camera.'}`);
     else if (!eva.dataModule) causes.push('The data module was left behind, so none of the stored science came home.');
     if (eva.outcome === 'o2') causes.push('The Specialist ran out of oxygen on the spacewalk. Pack spare O₂ and a toolkit for stuck bolts.');
     if (eva.outcome === 'drift') causes.push('With no tether, the Specialist drifted away from the ship. Always pack a tether for each spacewalker.');

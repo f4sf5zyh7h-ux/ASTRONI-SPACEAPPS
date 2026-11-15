@@ -306,11 +306,11 @@ export function createLaunchScene() {
       ${flight.log.length ? `<h3>Events this flight <span class="muted">· seed ${seedName(seed)}</span></h3><ul class="db-causes">${flight.log.map((l) => `<li>${l}</li>`).join('')}</ul>` : ''}
       <div class="brief-actions">
         <button data-act="retry" title="Same random events (seed ${seedName(seed)})">↺ Launch again</button>
-        ${ok ? '<button data-act="workshop">Workshop</button><button class="cta" data-act="eva">Suit up ▶</button>'
+        ${ok ? '<button data-act="workshop">Workshop</button><button class="cta" data-act="arm">Robotic arm ▶</button>'
     : '<button class="cta" data-act="workshop">Back to workshop (keep design)</button>'}
       </div>`;
     card.addEventListener('click', (e) => {
-      if (e.target.dataset.act === 'eva') transition(manager, 'eva');
+      if (e.target.dataset.act === 'arm') transition(manager, 'arm');
       if (e.target.dataset.act === 'workshop') transition(manager, 'workshop');
       if (e.target.dataset.act === 'retry') { state.replaySeed = seed; transition(manager, 'launch'); }
     });
@@ -497,8 +497,8 @@ export function createLaunchScene() {
         if (t > 10.5) {
           phase = 'done';
           if (sim.failedAt === 'rendezvous') return fail('Not enough RCS fuel to line up with the satellite.');
-          narrator.say('Holding position next to AURORA-7. Time to suit up.');
-          endCard(true, 'Arrived at AURORA-7', `<p>You're holding position next to AURORA-7. The Specialist suits up to spacewalk: replace the broken solar panel and bring the data module back.</p>${legTable()}`);
+          narrator.say('Holding position next to AURORA-7. Arm station, you are go.');
+          endCard(true, 'Arrived at AURORA-7', `<p>You're holding position next to AURORA-7. First use the robotic arm to inspect it for damage and move the new panel across, then the Specialist spacewalks to fit it and bring the data module back.</p>${legTable()}`);
         }
       }
 

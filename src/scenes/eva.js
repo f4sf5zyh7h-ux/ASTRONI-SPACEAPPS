@@ -1,11 +1,10 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { autoLook } from '../ui/mouseLook.js';
-import { parts } from '../data/catalog.js';
 import { exampleDesign } from '../data/catalog.js';
-import { buildRocket, setSolarDeploy } from '../render/rocketMesh.js';
+import { createServicingSite, DAMAGE } from '../render/servicingSite.js';
+import { rigArm } from '../render/roboticArm.js';
 import { addSpaceLighting, createStarfield, createEarth } from '../render/space.js';
-import { createAurora } from '../render/aurora.js';
 import { createNarrator } from '../ui/narrator.js';
 import { transition, flash } from '../ui/fade.js';
 import { state } from '../state.js';
@@ -45,49 +44,18 @@ export function createEvaScene() {
   earth.position.set(0, -440, -60);
   scene.add(earth);
 
-  // AURORA-7, damaged.
-  const aurora = createAurora();
-  aurora.setBroken(true);
-  scene.add(aurora.group);
+  // AURORA-7, the ship and the arm, laid out as the arm station left them (servicingSite.js).
+  const site = createServicingSite(scene, design);
+  const { aurora, hinge, stub, ship, capsule, hatch, dataSpot, satCentre } = site;
+  const repair = state.repair ?? { found: Object.keys(DAMAGE), parked: true }; // dev: straight to the spacewalk
+  const found = new Set(repair.found);
+  // The arm holds its last pose next to the parked panel.
+  const arm = rigArm(site.arm);
   scene.updateMatrixWorld(true);
-  const satBox = new THREE.Box3().setFromObject(aurora.group);
-  const satCentre = satBox.getCenter(new THREE.Vector3());
-  const satSize = satBox.getSize(new THREE.Vector3());
-
-  // Where the broken wing's hinge is (the wing itself is hidden while broken).
-  const hinge = new THREE.Vector3();
-  if (aurora.wingToShatter) {
-    aurora.wingToShatter.getWorldPosition(hinge);
-  } else hinge.set(satCentre.x + 1.2, satCentre.y, satCentre.z);
-  // Broken stub left on the hinge (a shard of the old panel) that you unbolt and push away.
-  const stub = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.05, 1.3), new THREE.MeshStandardMaterial({ color: 0x1b3a8a, roughness: 0.4, metalness: 0.4 }));
-  stub.position.copy(hinge).add(new THREE.Vector3(0.9, 0.3, 0));
-  stub.rotation.set(0.5, 0.3, -0.4);
-  scene.add(stub);
-
-  // The ship: crew section only (everything above the first engine stage), hatch facing the satellite.
-  const firstEngine = design.stack.findIndex((e) => e.engines || e.inside?.some((c) => c.engines) || /^tank/.test(e.part));
-  const shipDesign = { stack: design.stack.slice(0, firstEngine > 0 ? firstEngine : design.stack.length), cargo: [] };
-  const ship = buildRocket(shipDesign, parts).group;
-  setSolarDeploy(ship, 1); // in orbit: panels open
-  ship.rotation.y = Math.PI / 2; // side hatch (+X in part space) now faces −Z, towards AURORA-7
-  ship.position.set(satCentre.x + 2, satCentre.y - 3, satCentre.z + satSize.z / 2 + 16); // beside the bus: the wings span the view
-  scene.add(ship);
-  scene.updateMatrixWorld(true);
-  const capIdx = shipDesign.stack.findIndex((e) => e.part === 'capsule-2');
-  const capsule = ship.children.find((o) => o.userData.index === capIdx);
-  const hatch = capsule ? capsule.localToWorld(new THREE.Vector3(1.6, 1.4, 0)) : ship.position.clone();
-  const cargoIdx = shipDesign.stack.findIndex((e) => /cargo-module/.test(e.part));
-  const cargoObj = ship.children.find((o) => o.userData.index === cargoIdx);
-  const cargoDoor = cargoObj ? cargoObj.localToWorld(new THREE.Vector3(1.8, 1.5, 0)) : hatch.clone().add(new THREE.Vector3(0, -3, 0));
-
-  // Replacement panel crate (carried by the astronaut once fetched).
-  const crate = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.0, 1.5), new THREE.MeshStandardMaterial({ color: 0xf2c230, roughness: 0.6 }));
-  crate.position.copy(cargoDoor);
-  crate.visible = false;
-  scene.add(crate);
+  arm.reach(site.parkSpot.clone().add(new THREE.Vector3(0, 0.25, -0.25)));
+  if (repair.parked) site.parkPanel();
+  const panelSpot = repair.parked ? site.parkSpot.clone() : site.panelHolder.getWorldPosition(new THREE.Vector3());
   const dataBox = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.3, 0.4), new THREE.MeshStandardMaterial({ color: 0xff7a1a, emissive: 0x401800 }));
-  const dataSpot = satCentre.clone().add(new THREE.Vector3(0, 0.6, satSize.z / 2 + 0.25));
   dataBox.position.copy(dataSpot);
   scene.add(dataBox);
 
@@ -96,9 +64,13 @@ export function createEvaScene() {
   const steps = [
     bolt(1, 0.45, 0.45), bolt(2, 0.45, -0.45), bolt(3, -0.45, 0.45), bolt(4, -0.45, -0.45),
     { id: 'push', label: 'Push the broken array away', pos: stub.position.clone(), hold: 0.6 },
-    { id: 'fetch', label: 'Get the new panel from the cargo module', pos: cargoDoor, hold: 1.0 },
+    { id: 'fetch', label: repair.parked ? 'Take the new panel from the arm' : 'Unstrap the new panel from the cargo module', pos: panelSpot, hold: 1.0 },
     { id: 'fit', label: 'Fit the new panel on the mount', pos: hinge.clone().add(new THREE.Vector3(0.4, 0, 0)), hold: 2.2 },
+    { id: 'boltA', label: 'Bolt the new panel down (1 / 2)', pos: hinge.clone().add(new THREE.Vector3(0.3, 0.45, 0.45)), hold: 1.2 },
+    { id: 'boltB', label: 'Bolt the new panel down (2 / 2)', pos: hinge.clone().add(new THREE.Vector3(0.3, -0.45, -0.45)), hold: 1.2 },
+    ...(found.has('cable') ? [{ id: 'splice', label: DAMAGE.cable.fix, pos: site.damage.cable, hold: 2.4 }] : []),
     { id: 'cable', label: 'Connect the power cable', pos: hinge.clone().add(new THREE.Vector3(0.2, -0.8, 0)), hold: 1.6 },
+    ...(found.has('radiator') ? [{ id: 'patch', label: DAMAGE.radiator.fix, pos: site.damage.radiator, hold: 2.4 }] : []),
     { id: 'data', label: 'Take the data module', pos: dataSpot, hold: 1.2 },
     { id: 'home', label: 'Fly back to the hatch', pos: hatch, hold: 0.8 },
   ];
@@ -113,8 +85,10 @@ export function createEvaScene() {
   let elapsed = 0;
   let done = false;
   let o2Warned = false;
+  let carrying = false;
+  let spliced = false;
   const vel = new THREE.Vector3();
-  const pos = hatch.clone().add(new THREE.Vector3(-1.5, 0, 0));
+  const pos = hatch.clone().add(hinge.clone().sub(hatch).setY(0).normalize().multiplyScalar(1.2)); // just outside the hatch
   const keys = new Set();
 
   // Glowing marker on the current hotspot.
@@ -202,6 +176,8 @@ export function createEvaScene() {
       minutes: elapsed / 60 * 8, // game minutes (the walk is time-compressed ~8×)
       injured: outcome === 'o2',
       outcome,
+      spliced: stepDone('splice'),
+      patched: stepDone('patch'),
     };
     controls.unlock();
     const msg = outcome === 'ok'
@@ -209,13 +185,56 @@ export function createEvaScene() {
       : outcome === 'o2' ? 'Oxygen critical! The Commander hauls the Specialist back in on the tether.'
         : 'Lost contact with the Specialist. The Commander goes out on a rescue line.';
     narrator.say(msg);
-    setTimeout(() => transition(manager, 'return', {}, 900), 4500);
+    if (outcome === 'ok') setTimeout(systemTest, 2500);
+    else setTimeout(() => transition(manager, 'return', {}, 900), 4500);
   };
 
-  const stepDone = (id) => stepI > steps.findIndex((x) => x.id === id);
+  // Back inside: test AURORA-7's systems from the control pad before heading home.
+  const systemTest = () => {
+    const e = state.eva;
+    const tests = [
+      { id: 'power', name: 'Power from the new array', ok: e.repaired && e.spliced,
+        pass: 'Array output 2.4 kW, batteries charging.',
+        fail: e.repaired ? 'Array output 0 W: the power harness is still cut. The satellite can\'t restart its instruments; only the stored data in the module survives.' : 'No new panel fitted.' },
+      { id: 'thermal', name: 'Instrument temperature', ok: e.patched,
+        pass: 'Instruments at 21 °C, within limits.',
+        fail: 'Instruments at 68 °C: the dented radiator can\'t shed their heat, so they must run at a reduced rate.' },
+      { id: 'data', name: 'Data module', ok: e.dataModule,
+        pass: 'Data module aboard: the stored observations are coming home.',
+        fail: 'Data module not aboard: the stored observations are lost.' },
+    ];
+    e.tests = tests.map(({ id, name, ok, fail }) => ({ id, name, ok, fail }));
+    // Science still possible after the repair: no power → only the module's stored data (40%); hot instruments → 75%.
+    e.scienceFactor = (tests[0].ok ? 1 : 0.4) * (tests[1].ok ? 1 : 0.75);
+    const card = document.createElement('div');
+    card.className = 'brief systest';
+    card.innerHTML = `<div class="brief-tag">SYSTEM TEST · AURORA-7</div>
+      <p>Back at the control pad. Run the checks before you leave AURORA-7.</p>
+      ${tests.map((x, i) => `<div class="st-row" data-i="${i}"><b>${x.name}</b><span class="muted">waiting</span></div>`).join('')}
+      <div class="brief-actions"><button class="cta" data-act="run">Run system test</button></div>`;
+    ui.appendChild(card);
+    card.addEventListener('click', (ev) => {
+      const act = ev.target.dataset.act;
+      if (act === 'home') return transition(manager, 'return', {}, 900);
+      if (act !== 'run') return;
+      ev.target.disabled = true;
+      tests.forEach((x, i) => setTimeout(() => {
+        const row = card.querySelector(`[data-i="${i}"] span`);
+        row.className = x.ok ? 'good' : 'bad';
+        row.textContent = `${x.ok ? '✔' : '✘'} ${x.ok ? x.pass : x.fail}`;
+        if (i === tests.length - 1) {
+          const bad = tests.filter((y) => !y.ok).length;
+          narrator.say(bad ? `System test: ${bad} fault${bad > 1 ? 's' : ''} remaining. ${found.size < Object.keys(DAMAGE).length ? 'Something was missed in the inspection.' : ''}` : 'All systems go. AURORA-7 is back in business.');
+          card.querySelector('.brief-actions').innerHTML = '<button class="cta" data-act="home">De-orbit and go home ▶</button>';
+        }
+      }, 900 * (i + 1)));
+    });
+  };
+
+  const stepDone = (id) => { const i = steps.findIndex((x) => x.id === id); return i >= 0 && stepI > i; }; // a step not on the list was never done
   const showInventory = () => {
     const row = (icon, name, status, cls = '') => `<div class="inv-row ${cls}"><i>${icon}</i><b>${name}</b><span>${status}</span></div>`;
-    const panel = stepDone('fit') ? 'Fitted ✔' : stepDone('fetch') ? 'In your hands' : 'In the cargo module';
+    const panel = stepDone('fit') ? 'Fitted ✔' : stepDone('fetch') ? 'In your hands' : repair.parked ? 'Waiting on the robotic arm' : 'Strapped to the cargo module';
     const data = stepDone('data') ? 'In your hands' : 'On AURORA-7';
     const html = `<div class="obj-tag">INVENTORY</div>
       ${row(ITEM_INFO.toolkit[0], 'Toolkit', toolkit ? 'Torque wrench, bolt driver' : 'Not packed!', toolkit ? '' : 'bad')}
@@ -299,6 +318,7 @@ export function createEvaScene() {
     update(dt) {
       earth.userData.tick(dt);
       stars.position.copy(camera.position);
+      site.spark.visible = !spliced && Math.random() < 0.3;
       if (done) return;
       elapsed += dt;
 
@@ -341,7 +361,7 @@ export function createEvaScene() {
       marker.position.copy(s.pos);
       marker.lookAt(camera.position);
       marker.material.opacity = 0.5 + Math.sin(elapsed * 6) * 0.3;
-      if (crate.visible) crate.position.copy(pos).addScaledVector(fwd, 1.2).add(new THREE.Vector3(0, -0.6, 0));
+      if (carrying) { site.panel.position.copy(pos).addScaledVector(fwd, 1.3).add(new THREE.Vector3(0, -0.7, 0)); site.panel.quaternion.copy(camera.quaternion); }
       if (stepI > steps.findIndex((x) => x.id === 'data')) dataBox.position.copy(pos).addScaledVector(fwd, 0.9).add(new THREE.Vector3(0.4, -0.5, 0));
 
       const near = pos.distanceTo(s.pos) < REACH;
@@ -351,9 +371,11 @@ export function createEvaScene() {
         if (holdT >= s.hold) {
           holdT = 0;
           if (s.id === 'push') { stub.userData.v = new THREE.Vector3(0.8, 0.3, 0.2); }
-          if (s.id === 'fetch') { crate.visible = true; narrator.say('Got the panel. Take it to the mount.'); }
-          if (s.id === 'fit') { crate.visible = false; aurora.setBroken(false); flash(150); narrator.say('Panel latched on.'); }
-          if (s.id === 'cable') { narrator.say('Power restored! AURORA-7 science instruments coming back online.'); }
+          if (s.id === 'fetch') { carrying = true; scene.attach(site.panel); narrator.say(repair.parked ? 'Got the panel off the arm. Take it to the mount.' : 'Panel unstrapped. Take it to the mount.'); }
+          if (s.id === 'fit') { carrying = false; site.panel.visible = false; aurora.setBroken(false); flash(150); narrator.say('Panel latched on. Bolt it down.'); }
+          if (s.id === 'splice') { site.cable.children[0].scale.y = 1.6; site.spark.visible = false; spliced = true; narrator.say('Harness spliced.'); }
+          if (s.id === 'patch') { site.dent.material.color.set(0xc9c9c9); narrator.say('Radiator patched.'); }
+          if (s.id === 'cable') narrator.say(found.has('cable') ? 'Power cable connected.' : 'Power cable connected. No power reading yet… odd.');
           if (s.id === 'data') narrator.say('Data module secured. Head home.');
           if (s.stuck) narrator.say(toolkit ? 'Stuck bolt freed with the torque wrench.' : 'Finally! That bolt cost you a lot of oxygen.');
           stepI++;

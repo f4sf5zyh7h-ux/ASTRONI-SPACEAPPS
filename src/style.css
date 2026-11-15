@@ -449,3 +449,21 @@ kbd {
 .nasa-badge { display: inline-block; font: 8px/1.8 var(--pixel); padding: 2px 6px; border: 1px solid #6fb7ff; color: #9fd0ff; text-decoration: none; }
 .nasa-badge:hover { background: rgba(111,183,255,.15); }
 .static { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; opacity: .55; pointer-events: none; z-index: 15; mix-blend-mode: screen; }
+
+/* Robotic-arm station */
+.arm-panel { position: absolute; left: 20px; top: 20px; width: 360px; max-height: calc(100vh - 40px); overflow: auto; padding: 10px 14px; font-size: 19px; line-height: 1.25; }
+.arm-panel h4 { font: 9px/1.6 var(--pixel); color: var(--accent); margin: 12px 0 4px; font-weight: 400; }
+.arm-panel button { margin-top: 8px; }
+.arm-hint { margin: 8px 0; padding: 6px 8px; background: rgba(79,195,247,.08); border-left: 2px solid var(--accent); }
+.arm-panel .dmg { margin: 4px 0 8px; } .arm-panel .dmg b { display: block; font-weight: 400; color: #ffcc66; } .arm-panel .dmg span { font-size: 16px; color: var(--muted); }
+.arm-keys { font-size: 17px; margin: 3px 0; } .arm-keys > span { display: inline-block; width: 92px; }
+.arm-joints { margin-top: 8px; font-size: 15px; }
+.arm-pip { position: absolute; pointer-events: none; border: 2px solid var(--accent); box-shadow: 0 0 0 1px #000; }
+.arm-pip .obj-tag { position: absolute; left: 6px; top: 4px; text-shadow: 0 1px 2px #000; }
+.arm-pip::after { content: ""; position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px; border: 1px solid rgba(255,255,255,.7); border-radius: 50%; }
+.arm-pip i { position: absolute; left: 0; bottom: 0; height: 4px; background: #ffcc66; }
+.arm-toast { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); padding: 6px 12px; background: rgba(5,7,13,.8); border: 1px solid #ffcc66; font-size: 19px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.arm-toast.show { opacity: 1; }
+
+.systest .st-row { display: grid; grid-template-columns: 220px 1fr; gap: 10px; padding: 8px 10px; margin: 6px 0; background: rgba(255,255,255,.04); font-size: 19px; }
+.systest .st-row b { font-weight: 400; }

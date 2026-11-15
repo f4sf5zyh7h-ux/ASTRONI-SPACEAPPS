@@ -377,3 +377,11 @@ Crew must return for a passing grade. Show the formula breakdown on the debrief 
 - Mitigations: battery/spare battery (shorter flare shelter), debris shield (hit does no damage), high-gain antenna (30 s blackout, no delay), more engines (cheaper engine-out).
 - Seed shown as `AURORA-####`; "Launch again" / "Fly again (same events)" replay it via `state.replaySeed`.
 - The Arcade/Real toggle was removed from the UI (Arcade always on).
+
+## 19. Robotic arm, inspection, system test (2026-11-15)
+
+- Flow after arrival: launch card → **arm** scene (`src/scenes/arm.js`) → **eva** → system test card → return.
+- `src/render/servicingSite.js` lays out AURORA-7, the crew section ~5 m off the broken side, the arm (human's `robotic-arm.glb`, primitive fallback with the same joint names) on the cargo module, the new panel strapped beside it, and 3 damage spots (`DAMAGE`: array, cut power harness, dented radiator). Both arm and EVA scenes use it.
+- `src/render/roboticArm.js`: two-link IK on the GLB joints (base yaw, shoulder, elbow; wrist straight; 0.45 m boom side-offset handled). Player steers the grip (W/S, A/D, R/F), C scans damage, G grabs/releases. Wrist camera drawn picture-in-picture.
+- Damage found by the arm becomes spacewalk steps (splice the harness, patch the radiator). The system test after the spacewalk checks power / temperature / data module; `state.eva.scienceFactor` = (power ? 1 : 0.4) × (thermal ? 1 : 0.75) scales science in the debrief.
+- The arm is fitted to the cargo module for Mission 1 (the buildable robotic-arm part stays locked for Mission 2).
