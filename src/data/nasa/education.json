@@ -1,0 +1,9 @@
+{
+  "source": "NASA Glenn Research Center, Beginner's Guide to Aeronautics (rockets)",
+  "accessed": "2026-11-15",
+  "links": {
+    "rocketEquation": "https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/ideal-rocket-equation/",
+    "staging": "https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/stage/",
+    "specificImpulse": "https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/specific-impulse/"
+  }
+}

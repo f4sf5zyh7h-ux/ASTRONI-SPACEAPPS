@@ -1,10 +1,12 @@
 {
   "source": "NASA NSSDCA Earth Fact Sheet",
   "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/earthfact.html",
-  "verified": false,
-  "verifyNote": "Site unreachable (connection reset) on 2026-11-14. Re-check these values against the page before marking verified in DATA_SOURCES.md.",
+  "accessed": "2026-11-15",
+  "verified": true,
+  "verifyNote": "Checked against the page on 2026-11-15: GM 0.39860 x 10^6 km^3/s^2, volumetric mean radius 6371.000 km, equatorial radius 6378.137 km, surface gravity (mean) 9.820 m/s^2. Standard gravity g0 = 9.80665 m/s^2 (exact, CODATA 2018, as quoted on the page) is used in the rocket equation.",
   "GM_km3_s2": 398600,
   "volumetricMeanRadius_km": 6371.0,
   "equatorialRadius_km": 6378.137,
-  "surfaceGravity_m_s2": 9.798
+  "surfaceGravity_m_s2": 9.82,
+  "standardGravity_m_s2": 9.80665
 }

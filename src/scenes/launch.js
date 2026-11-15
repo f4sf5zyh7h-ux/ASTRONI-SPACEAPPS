@@ -11,6 +11,7 @@ import { createNarrator } from '../ui/narrator.js';
 import { transition, fadeTo } from '../ui/fade.js';
 import { state } from '../state.js';
 import missionData from '../data/missions.json';
+import { nasaBadge } from '../ui/nasaBadge.js';
 import { newSeed, seedName, shipTraits, rollEvents, eventCard, addEffects } from '../physics/events.js';
 
 // Launch cutscene, driven by the leg-by-leg physics result (CLAUDE.md §5, §16.7):
@@ -165,14 +166,14 @@ export function createLaunchScene() {
   let alarm = null; // { el, card, timer } while a decision is open (the time warp pauses)
   let blackout = 0; // seconds of screen static left
   let staticCv = null;
-  const nasaBadge = (n) => (n ? `<a class="nasa-badge" href="${n.href}" target="_blank" rel="noopener">NASA data · ${n.label}</a>` : '');
+  const badge = (n) => (n ? nasaBadge(n.label, n.href) : '');
   const openAlarm = (ev, info = false) => {
     const card = eventCard(ev, traits);
     narrator.say(card.say ?? card.title);
     if (card.blackout) blackout = card.blackout;
     const el = document.createElement('div');
     el.className = 'alarm';
-    el.innerHTML = `<div class="alarm-tag">⚠ ALARM</div><h3>${card.title}</h3><p>${card.text}</p>${nasaBadge(card.nasa)}
+    el.innerHTML = `<div class="alarm-tag">⚠ ALARM</div><h3>${card.title}</h3><p>${card.text}</p>${badge(card.nasa)}
       ${card.timer ? '<div class="alarm-timer"><i></i></div>' : ''}
       <div class="alarm-actions">${card.auto ? '<button data-i="ok" class="cta">Understood</button>' : card.choices.map((c, i) => `<button data-i="${i}" class="${i === 0 ? 'cta' : ''}">${c.label}</button>`).join('')}</div>`;
     ui.appendChild(el);

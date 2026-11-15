@@ -10,6 +10,8 @@ import { transition, flash } from '../ui/fade.js';
 import { state } from '../state.js';
 import missionData from '../data/missions.json';
 import { seedName } from '../physics/events.js';
+import { nasaBadge } from '../ui/nasaBadge.js';
+import hubble from '../data/nasa/eva.json';
 
 // Return (CLAUDE.md §16.10–11): de-orbit burn → capsule separates → re-entry fireball →
 // parachutes → splashdown, then the debrief with score (§9) and plain-English causes.
@@ -164,7 +166,7 @@ export function createReturnScene() {
         <tr><td><b>Total</b></td><td></td><td style="text-align:right"><b>${score}</b></td></tr></table>
       <h3>Speed change (Δv) per leg</h3>
       <table class="leg-table">${sim.legs.map((l) => `<tr class="${l.ok ? 'good' : 'bad'}"><td>${l.id}</td><td>needed ${Math.round(l.required)} m/s</td><td>got ${Math.round(l.delivered)} m/s</td><td>${l.ok ? '✔' : '✘'}</td></tr>`).join('')}</table>
-      <div class="db-real"><b>Real world:</b> NASA astronauts did repairs like this five times on the Hubble Space Telescope (1993–2009), including replacing its solar arrays on spacewalks.</div>
+      <div class="db-real"><b>Real world:</b> NASA astronauts flew ${hubble.facts.servicingMissions} servicing missions to the Hubble Space Telescope (1993–2009). On the first they replaced its solar arrays; in 2002 an astronaut replaced a solar array in a seven-hour spacewalk. ${nasaBadge('Hubble missions', hubble.url)}</div>
       ${success ? '<div class="db-unlock">🔓 Robotic Arm unlocked for Mission 2</div>' : ''}
       <div class="brief-actions">
         <button data-act="missions">Mission select</button>

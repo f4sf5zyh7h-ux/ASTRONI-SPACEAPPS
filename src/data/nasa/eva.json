@@ -1,0 +1,20 @@
+{
+  "source": "NASA Science: Astronaut Missions to Hubble",
+  "url": "https://science.nasa.gov/mission/hubble/observatory/missions-to-hubble/",
+  "accessed": "2026-11-15",
+  "verified": true,
+  "facts": {
+    "servicingMissions": 5,
+    "firstMission": "Dec 2-13, 1993",
+    "lastMission": "May 11-24, 2009",
+    "sm1": {
+      "url": "https://science.nasa.gov/mission/hubble/observatory/missions-to-hubble/servicing-mission-1/",
+      "quote": "One of the top servicing tasks for SM1 was replacing Hubble's solar arrays"
+    },
+    "sm3b": {
+      "url": "https://science.nasa.gov/mission/hubble/observatory/missions-to-hubble/servicing-mission-3b/",
+      "quote": "Grunsfeld, payload commander, went on to replace the giant telescope's starboard solar array in a seven-hour spacewalk on March 4, 2002"
+    }
+  },
+  "notes": "The EVA steps and O2 timer in the game are inspired by these missions, not copied from them."
+}

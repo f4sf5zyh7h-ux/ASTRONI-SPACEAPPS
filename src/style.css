@@ -472,3 +472,7 @@ kbd {
   background: rgba(5,7,13,.82); border: 1px solid var(--accent); font-size: 21px; line-height: 1.35; text-align: center; pointer-events: none; }
 .arm-goal .obj-tag { margin-bottom: 4px; }
 .arm-goal .amber { color: #ffb347; font-weight: 400; } .arm-goal .blue { color: #4fc3f7; font-weight: 400; }
+
+.learn { font-size: 17px; margin: 6px 0; } .learn a { color: #9fd0ff; }
+/* Report screens: captions sit at the top so they never cover the buttons. */
+body:has(.debrief) .caption, body:has(.systest) .caption, body:has(.brief) .caption { top: 12px; bottom: auto; }

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { nasaBadge } from '../ui/nasaBadge.js';
 import { addSpaceLighting, createStarfield, createEarth } from '../render/space.js';
 import { createAurora, createShatter, createSparks, createDebrisFragment } from '../render/aurora.js';
 import { createNarrator } from '../ui/narrator.js';
@@ -152,6 +153,7 @@ export function createIntroScene() {
           <li>${mission.satellite} orbits at <b>${mission.targetAltitude / 1000} km</b>. Its battery dies in <b>${mission.deadlineH} h</b>.</li>
           <li><b>${mission.crew}</b> crew: the Commander flies, the Specialist does the spacewalk.</li>
           <li>Cargo: <b>${tonnes(mission.panelDelivered, 1)}</b> replacement panel + toolkit.</li>
+          <li>Debris in orbit hits at about <b>10 km/s</b> on average. ${nasaBadge('Orbital Debris FAQ', 'https://orbitaldebris.jsc.nasa.gov/faq/')}</li>
         </ul>
         <h3>Speed change (Δv) by leg <span class="muted">· standard approach</span></h3>
         <div class="dv-bar">${seg(legs.launch, legs.launch, 'launch', 'Launch')}${seg(legs.transfer, legs.transfer * 8, 'transfer', 'Transfer')}${seg(legs.deorbit, legs.deorbit * 8, 'deorbit', 'De-orbit')}</div>

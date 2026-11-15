@@ -1,4 +1,7 @@
 // Workshop HTML panels: parts catalogue (left), live stats + checklist (right).
+import { nasaBadge } from './nasaBadge.js';
+import edu from '../data/nasa/education.json';
+import earthData from '../data/nasa/earth.json';
 import { partList, itemList, parts, DIAMETER, isLocked } from '../data/catalog.js';
 import { state } from '../state.js';
 import { PART_INFO } from '../data/partInfo.js';
@@ -195,7 +198,11 @@ export const HELP_HTML = `<ul>
   <li>Build from the bottom up: casing → fuel tank inside → engines under it → decoupler → upper stage → capsule on top.</li>
   <li>Upper engines tuck into the casing below, so leave free space at its top.</li>
   <li>Hover anything with <b>?</b> for an explanation. Stuck? Press <b>Example</b>.</li>
-</ul>`;
+</ul>
+<p class="learn">Learn the physics: <a href="${edu.links.rocketEquation}" target="_blank" rel="noopener">rocket equation</a> ·
+  <a href="${edu.links.staging}" target="_blank" rel="noopener">staging</a> ·
+  <a href="${edu.links.specificImpulse}" target="_blank" rel="noopener">specific impulse</a> (NASA Glenn)</p>
+<p class="learn">Orbit maths uses Earth's GM and mean radius ${nasaBadge('Earth Fact Sheet', earthData.url)}</p>`;
 
 /** One short "what to do next" line for the guide box, from the design's state. */
 export function guideText(design, report, sim) {
