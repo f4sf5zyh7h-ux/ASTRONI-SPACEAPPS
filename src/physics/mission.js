@@ -71,10 +71,15 @@ export function simulateMission(design, parts, mission, approachId) {
   if (!leg('launch', launchNeed, burn(launchNeed, true))) {
     const got = (legs[legs.length - 1].delivered / 1000).toFixed(2);
     const needKm = (launchNeed / 1000).toFixed(2);
-    // One stage carries all its empty tanks to orbit; more fuel adds mass too, so it soon stops helping.
-    const tip = fuelledStages < 2
-      ? ' A single stage can never get there: more fuel also means more weight to lift. Add a second stage on top (interstage + casing with its own engines).'
-      : ' Add fuel to the lower stage, or make the upper part of the rocket lighter.';
+    // Name the real cause first: fuel that can't be burned, or engines that can't fire, before "add a stage".
+    const stuck = report.sections.reduce((t, s) => t + (s.unusable ?? 0), 0);
+    const tip = report.stages[0]?.section.vacuumOnly
+      ? ' Your bottom engines are vacuum engines, which can\'t fire in thick air. Use Booster engines at the bottom and keep the vacuum engine for the upper stage.'
+      : stuck > 0
+        ? ` ${(stuck / 1000).toFixed(1)} t of your fuel sits in a section with no engines, so it is dead weight. Drag an engine set under that casing to turn it into a real stage.`
+        : fuelledStages < 2
+          ? ' A single stage can never get there: more fuel also means more weight to lift. Add a second stage on top (interstage + casing with its own engines).'
+          : ' Add fuel to the lower stage, or make the upper part of the rocket lighter.';
     return fail('launch', `Ran out of fuel before reaching orbit: launch needs ${needKm} km/s, your rocket had ${got} km/s.${tip}`);
   }
 
