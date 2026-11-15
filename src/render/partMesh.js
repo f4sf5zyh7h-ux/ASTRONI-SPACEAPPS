@@ -41,7 +41,35 @@ export function stackHeight(part, entry, parts) {
 export function hangBelow(entry, parts) {
   const plate = entry?.inside?.[0];
   if (!plate?.engines?.count) return 0;
-  return parts.get(plate.engines.part)?.height ?? 0;
+  const ip = parts.get(plate.part);
+  const eng = parts.get(plate.engines.part);
+  if (!eng) return 0;
+  return ip ? eng.height * engineSet(ip, plate.engines.count, eng).scale : eng.height;
+}
+
+const setCache = new Map();
+/**
+ * Where a plate's engines go and how much they shrink to fit side by side. Scaled evenly
+ * (not just squeezed thinner) so the engines keep their real shape. Physics is unaffected.
+ */
+function engineSet(ip, count, eng) {
+  const key = `${ip.id}|${count}|${eng.id}`;
+  if (setCache.has(key)) return setCache.get(key);
+  const plate = modelFor(ip);
+  const empties = [];
+  // The L plate model has 9 positions; a 5-engine set uses the centre + the 4 on the axes.
+  const names = count === 5 ? [1, 2, 4, 6, 8] : Array.from({ length: count }, (_, k) => k + 1);
+  for (const k of names) {
+    const e = plate?.getObjectByName(`engine-${k}`);
+    if (e) empties.push([e.position.x, e.position.z]);
+  }
+  const r = (DIAMETER[ip.size] ?? 2.5) / 2;
+  const layout = empties.length === count ? empties : engineLayout(count, r);
+  const slot = Math.min(minSpacing(layout), r * 2) * 0.95;
+  const width = DIAMETER[eng.sizeBottom] ?? 2.5;
+  const out = { layout, scale: Math.min(1, slot / width) };
+  if (plate) setCache.set(key, out); // don't cache the fallback before models load
+  return out;
 }
 
 /**
@@ -61,22 +89,11 @@ function buildInside(casing, inside, parts) {
     g.add(obj);
     if (c.engines?.count) {
       const eng = parts.get(c.engines.part);
-      const empties = [];
-      // The L plate model has 9 positions; a 5-engine set uses the centre + the 4 on the axes.
-      const names = c.engines.count === 5 ? [1, 2, 4, 6, 8] : Array.from({ length: c.engines.count }, (_, k) => k + 1);
-      for (const k of names) {
-        const e = obj.getObjectByName(`engine-${k}`);
-        if (e) empties.push([e.position.x, e.position.z]);
-      }
-      const r = (DIAMETER[ip.size] ?? 2.5) / 2;
-      const layout = empties.length === c.engines.count ? empties : engineLayout(c.engines.count, r);
-      const slot = Math.min(minSpacing(layout), r * 2) * 0.95;
-      const width = DIAMETER[eng.sizeBottom] ?? 2.5;
-      const squeeze = Math.min(1, slot / width);
+      const { layout, scale } = engineSet(ip, c.engines.count, eng);
       for (const [x, z] of layout) {
         const e = modelFor(eng) ?? engine(eng);
-        if (e.userData.isModel) e.scale.set(squeeze, 1, squeeze);
-        e.position.set(x, y - eng.height, z); // nozzle exit at the bottom, top flange under the plate
+        e.scale.setScalar(scale);
+        e.position.set(x, y - eng.height * scale, z); // nozzle exit at the bottom, top flange under the plate
         e.userData.engine = true;
         g.add(e);
       }
