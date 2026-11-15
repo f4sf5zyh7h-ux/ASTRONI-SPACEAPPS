@@ -391,14 +391,21 @@ export function createWorkshopScene() {
     const rect = canvas.getBoundingClientRect();
     ndc.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
     raycaster.setFromCamera(ndc, camera);
-    const hit = raycaster.intersectObject(rocket.group, true)[0];
+    // In X-ray the casing walls are see-through, so the pointer goes through them to what's inside.
+    const hits = raycaster.intersectObject(rocket.group, true);
+    const hit = (xrayToggle ? hits.find((h) => !h.object.userData.shell) : null) ?? hits[0];
     let o = hit?.object;
     let engineHit = false;
+    let insideIndex;
     while (o && o.userData.index === undefined) {
       if (o.userData.engine) engineHit = true;
+      if (insideIndex === undefined && o.userData.insideIndex !== undefined) insideIndex = o.userData.insideIndex;
       o = o.parent;
     }
-    if (o) o.userData.hitEngine = engineHit;
+    if (o) {
+      o.userData.hitEngine = engineHit;
+      o.userData.hitInside = engineHit ? undefined : insideIndex;
+    }
     return o ?? null;
   };
 
@@ -477,6 +484,29 @@ export function createWorkshopScene() {
     const o = pick(e);
     if (!o) return tip.classList.remove('show');
     const entry = design.stack[o.userData.index];
+    const place = (html) => {
+      tip.innerHTML = html;
+      tip.style.left = `${e.clientX + 16}px`;
+      tip.style.top = `${e.clientY + 12}px`;
+      tip.classList.add('show');
+    };
+    // Pointing at an engine set, or at something packed inside a casing: name that, not the casing.
+    const plate = entry.inside?.[0];
+    if (o.userData.hitEngine && plate?.engines) {
+      const ep = parts.get(plate.engines.part);
+      const n = plate.engines.count;
+      const thrust = n * (ep.thrustSL || ep.thrustVac);
+      return place(`<b>${n}× ${ep.name}</b><br><span class="muted">on the ${parts.get(plate.part).name}, under the ${parts.get(entry.part).name}</span><br>` +
+        `Thrust ${Math.round(thrust / 1000).toLocaleString()} kN ${ep.thrustSL ? 'at sea level' : 'in space'} · Isp ${ep.ispVac} s<br>` +
+        '<span class="muted">Right-click to remove the engine set</span>');
+    }
+    if (o.userData.hitInside !== undefined && entry.inside?.[o.userData.hitInside]) {
+      const c = entry.inside[o.userData.hitInside];
+      const ip = parts.get(c.part);
+      const what = ip.propellant ? `${(ip.propellant / 1000).toFixed(1)} t of fuel` : ip.monoprop ? `${(ip.monoprop / 1000).toFixed(2)} t of RCS fuel` : `${ip.height} m tall`;
+      return place(`<b>${ip.name}</b><br><span class="muted">inside the ${parts.get(entry.part).name}</span><br>${what}<br>` +
+        '<span class="muted">Right-click to take out the top item</span>');
+    }
     const p = parts.get(o.userData.radial ?? entry.part);
     const extra = o.userData.radial ? '' : entry.engines ? ` + ${entry.engines.count}× ${parts.get(entry.engines.part).name}` : '';
     let body = '';
@@ -490,10 +520,7 @@ export function createWorkshopScene() {
         `<span class="muted">${used.toFixed(1)} / ${p.interior.height} m used</span><br>${list.length ? list.join('<br>') : '<span class="muted">Empty: drag internals in</span>'}<br>`;
       if (inside.length) action = 'Right-click to take out the top item';
     }
-    tip.innerHTML = `<b>${p.name}</b>${extra}<br>${body}<span class="muted">${action}</span>`;
-    tip.style.left = `${e.clientX + 16}px`;
-    tip.style.top = `${e.clientY + 12}px`;
-    tip.classList.add('show');
+    place(`<b>${p.name}</b>${extra}<br>${body}<span class="muted">${action}</span>`);
   };
 
   return {

@@ -86,6 +86,7 @@ function buildInside(casing, inside, parts) {
     if (!ip) continue;
     const obj = modelFor(ip) ?? stackPart({ ...ip, sizeTop: ip.size, sizeBottom: ip.size }, null, parts);
     obj.position.y = y;
+    obj.userData.insideIndex = inside.indexOf(c); // so the workshop can name what the pointer is on
     g.add(obj);
     if (c.engines?.count) {
       const eng = parts.get(c.engines.part);
