@@ -19,7 +19,7 @@
       "approaches": [
         { "id": "standard", "name": "Standard Hohmann", "transfer": "hohmann", "hours": 24, "blurb": "Two efficient burns and some waiting to line up. Balanced." },
         { "id": "fast", "name": "Fast intercept", "transferDv": 350, "hours": 4, "blurb": "Burn harder to arrive in about 4 hours. Costs fuel, saves life support." },
-        { "id": "patient", "name": "Patient phasing", "transfer": "hohmann", "hours": 48, "blurb": "Same cheap burns but wait two days to line up. More time for things to go wrong." }
+        { "id": "patient", "name": "Patient phasing", "transfer": "hohmann", "hours": 48, "blurb": "Same cheap burns but wait two days to line up. Uses most of your 72 hours, so less science is saved." }
       ]
     },
     { "id": "mission-2", "name": "Lunar Cargo Run", "locked": true },

@@ -372,7 +372,7 @@ Crew must return for a passing grade. Show the formula breakdown on the debrief 
 
 ## 18. Random events (2026-11-15)
 
-- `src/physics/events.js` (pure): seeded RNG, `rollEvents(seed)` picks 1 / 2 / 3 events for Fast / Standard / Patient from engine-out, solar-flare (real DONKI records in `src/data/nasa/solar_flares.json`, from `scripts/fetch-flares.mjs`), debris warning, fuel leak (6 s timer); comms blackout always happens.
+- `src/physics/events.js` (pure): seeded RNG, `rollEvents(seed)` picks exactly ONE random event per run (human decision, 2026-11-15) from engine-out, solar-flare (real DONKI records in `src/data/nasa/solar_flares.json`, from `scripts/fetch-flares.mjs`), debris warning, fuel leak (6 s timer); comms blackout always happens.
 - Effects feed `simulateMission(..., effects)`: `launchExtra` (engine out = 90 m/s ÷ bottom liquid engines), `leakFrac` (2% quick / 10% slow), `coastDv` (15 m/s dodge, new `dodge` leg). Hours, injury and score go to the debrief via `state.flight`.
 - Mitigations: battery/spare battery (shorter flare shelter), debris shield (hit does no damage), high-gain antenna (30 s blackout, no delay), more engines (cheaper engine-out).
 - Seed shown as `AURORA-####`; "Launch again" / "Fly again (same events)" replay it via `state.replaySeed`.

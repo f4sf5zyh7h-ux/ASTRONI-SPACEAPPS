@@ -17,14 +17,13 @@ describe('random events', () => {
     expect(rng(1)()).toBe(rng(1)());
   });
 
-  it('fast intercept has fewer events than patient phasing; comms blackout always happens', () => {
+  it('exactly one random event plus the scripted comms blackout, on every approach', () => {
     for (let seed = 1000; seed < 1050; seed++) {
-      const fast = rollEvents(seed, { approachId: 'fast', traits });
-      const patient = rollEvents(seed, { approachId: 'patient', traits });
-      expect(fast).toHaveLength(2);
-      expect(patient).toHaveLength(4);
-      expect(fast.some((e) => e.id === 'comms-blackout')).toBe(true);
-      expect(new Set(patient.map((e) => e.id)).size).toBe(4);
+      for (const approachId of ['fast', 'standard', 'patient']) {
+        const ev = rollEvents(seed, { approachId, traits });
+        expect(ev).toHaveLength(2);
+        expect(ev.filter((e) => e.id === 'comms-blackout')).toHaveLength(1);
+      }
     }
   });
 

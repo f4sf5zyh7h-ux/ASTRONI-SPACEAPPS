@@ -35,14 +35,14 @@ export function shipTraits(design, report) {
 }
 
 /**
- * Roll this run's events. Fast intercept = less time in orbit, fewer events; Patient phasing = more.
- * Returns [{ id, ...details }] in the order they happen. The comms blackout always happens (scripted).
+ * Roll this run's events: exactly one random event plus the scripted comms blackout (CLAUDE.md §8).
+ * Returns [{ id, ...details }] in the order they happen.
  */
 export function rollEvents(seed, { approachId, traits }) {
   const r = rng(seed);
   const pool = ['solar-flare', 'debris', 'fuel-leak'];
   if (traits.bottomEngines > 0) pool.push('engine-out');
-  const n = approachId === 'fast' ? 1 : approachId === 'patient' ? 3 : 2;
+  const n = 1; // one random event per run, whatever the approach
   const chosen = [];
   while (chosen.length < Math.min(n, pool.length)) {
     const id = pool[Math.floor(r() * pool.length)];
