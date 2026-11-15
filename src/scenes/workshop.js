@@ -18,7 +18,8 @@ const hullRadius = (p) => Math.max(DIAMETER[p.sizeTop] ?? 0, DIAMETER[p.sizeBott
 /** Stack parts big enough to carry side parts. */
 const SIZE_RANK = { S: 1, M: 2, L: 3 };
 const isBody = (p) =>
-  !p.radial && p.sizeTop && p.sizeBottom && p.height >= 1 && p.category !== 'engines' && p.role !== 'decoupler' && !p.id.startsWith('adapter');
+  !p.radial && p.sizeTop && p.sizeBottom && p.height >= 1 && p.category !== 'engines' && p.role !== 'decoupler' && !p.id.startsWith('adapter') &&
+  p.sizeTop === p.sizeBottom; // straight sides only: on a tapered part (capsule, nose cone) side parts would float
 
 /** Workshop: an empty launch pad; drag parts from the catalogue to build the rocket. */
 export function createWorkshopScene() {
@@ -221,7 +222,7 @@ export function createWorkshopScene() {
   const whyNoFit = (part) => {
     if (part.radial) return design.stack.some((e) => isBody(parts.get(e.part)))
       ? `No free side slots for ${countFor(part)} × ${part.name}. Try ×1 or ×2, or remove a side part (right-click).`
-      : 'Side parts go on casings or modules. Add one first.';
+      : 'Side parts go on straight-sided casings or modules, not on tapered parts like the capsule. Add one first.';
     if (part.category === 'engines') return design.stack.some((e) => parts.get(e.part).interior)
       ? `Engines go under a casing as a full set (S casing 1, M 3, L 5). Every casing already has engines, or the ${part.name} is too big for it, or the casing is too full for a thrust plate.`
       : 'Engines go under a casing. Add a casing first (Casings tab).';
@@ -248,6 +249,8 @@ export function createWorkshopScene() {
     const ghost = createPartMesh(part, null, parts);
     ghost.traverse((o) => { if (o.isMesh) o.material = ghostMat; });
     ghost.userData.height = part.height; // the crane hook hangs just above it
+    // How wide the grabber must open: the top of a stack part, or a slim side part.
+    ghost.userData.radius = (DIAMETER[part.sizeTop] ?? DIAMETER[part.size] ?? part.diameter ?? 0.6) / 2;
     scene.add(ghost);
     const nodes = nodesFor(part);
     const markers = new THREE.Group();

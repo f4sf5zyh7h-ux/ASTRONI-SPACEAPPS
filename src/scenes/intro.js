@@ -135,30 +135,28 @@ export function createIntroScene() {
     brief.innerHTML = `
       <div class="brief-tag">CONTRACT AWARDED · ${mission.name.toUpperCase()}</div>
       <blockquote>“${quote}”</blockquote>
-      <div class="brief-cols">
-        <div>
-          <h3>Objectives</h3>
-          <ol>
-            <li>Reach ${mission.satellite} at ${mission.targetAltitude / 1000} km</li>
-            <li>Spacewalk: replace the shattered solar panel</li>
-            <li>Retrieve the data module</li>
-            <li>Bring the crew and the data home</li>
-          </ol>
-        </div>
-        <div>
-          <h3>Constraints</h3>
-          <ul class="brief-facts">
-            <li><b>$${mission.budget}M</b> budget</li>
-            <li><b>${mission.deadlineH} h</b> before the battery dies</li>
-            <li><b>${mission.crew}</b> crew: Commander + Specialist</li>
-            <li><b>${tonnes(mission.panelDelivered, 1)}</b> replacement panel + toolkit</li>
-          </ul>
-        </div>
+      <ol class="brief-steps">
+        <li><b>1</b>Fly to ${mission.satellite}</li>
+        <li><b>2</b>Fix the panel</li>
+        <li><b>3</b>Grab the data</li>
+        <li><b>4</b>Fly home</li>
+      </ol>
+      <div class="brief-stats">
+        <div><b>$${mission.budget}M</b><span>budget</span></div>
+        <div><b>${mission.deadlineH} h</b><span>time limit</span></div>
+        <div><b>${kms(total)}</b><span>Δv needed</span></div>
       </div>
-      <h3>Speed change (Δv) your rocket must deliver <span class="muted">· standard approach</span></h3>
-      <div class="dv-bar">${seg(legs.launch, legs.launch, 'launch', 'Launch')}${seg(legs.transfer, legs.transfer * 8, 'transfer', 'Transfer')}${seg(legs.deorbit, legs.deorbit * 8, 'deorbit', 'De-orbit')}</div>
-      <p class="muted">Total ≈ ${kms(total)} plus ${legs.rendezvous} m/s from the RCS thrusters. Small legs drawn 8× wider so you can see them.
-      Launch figure includes gravity and drag losses (representative).</p>
+      <details class="brief-more">
+        <summary>Mission details</summary>
+        <ul class="brief-facts">
+          <li>${mission.satellite} orbits at <b>${mission.targetAltitude / 1000} km</b>. Its battery dies in <b>${mission.deadlineH} h</b>.</li>
+          <li><b>${mission.crew}</b> crew: the Commander flies, the Specialist does the spacewalk.</li>
+          <li>Cargo: <b>${tonnes(mission.panelDelivered, 1)}</b> replacement panel + toolkit.</li>
+        </ul>
+        <h3>Speed change (Δv) by leg <span class="muted">· standard approach</span></h3>
+        <div class="dv-bar">${seg(legs.launch, legs.launch, 'launch', 'Launch')}${seg(legs.transfer, legs.transfer * 8, 'transfer', 'Transfer')}${seg(legs.deorbit, legs.deorbit * 8, 'deorbit', 'De-orbit')}</div>
+        <p class="muted">Plus ${legs.rendezvous} m/s from the RCS thrusters. Small legs drawn 8× wider. Launch includes gravity and drag losses (representative).</p>
+      </details>
       <div class="brief-actions">
         <button data-act="replay">↺ Watch again</button>
         <button class="cta" data-act="workshop">Go to workshop</button>

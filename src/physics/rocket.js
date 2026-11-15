@@ -100,6 +100,7 @@ export function validateStack(design, parts) {
     if (!p) { errors.push(`Unknown part "${entry.part}"`); continue; }
     if (p.radial) errors.push(`${p.name} is a side-mounted part and can't go in the main stack`);
     if (entry.radial?.length && !radialSlots(entry.radial, parts)) errors.push(`Too many side parts on the ${p.name}: they would overlap`);
+    if (entry.radial?.length && p.sizeTop !== p.sizeBottom) errors.push(`Side parts can't go on the ${p.name}: its sides taper, so they would float`);
 
     const belowEntry = stack[i + 1];
     const below = belowEntry && parts.get(belowEntry.part);

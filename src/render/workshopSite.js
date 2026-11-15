@@ -55,7 +55,14 @@ export function createWorkshopSite(scene) {
       hook: factory.getObjectByName('crane-hook'),
       cable: factory.getObjectByName('crane-cable'),
       x: -18, z: 10, h: 25, // current (smoothed) crane position
+      r: 2.4, depth: 0.8, // grabber opening radius and finger reach (smoothed)
     };
+    // Swap the plain hook for an adaptive grabber under the hook block.
+    const hookMesh = factory.getObjectByName('crane-hook-hook');
+    if (hookMesh) hookMesh.visible = false;
+    crane.grabber = makeGrabber();
+    crane.grabber.position.y = -1; // bottom of the hook block
+    crane.hook.add(crane.grabber);
   }
 
   // ---- rocket stand ----
@@ -123,6 +130,15 @@ export function createWorkshopSite(scene) {
         crane.trolley.position.z = crane.z;
         crane.hook.position.y = crane.h - TROLLEY_Y;
         crane.cable.scale.y = (TROLLEY_Y - crane.h) / CABLE_LEN;
+        // Grabber: closes onto the carried part's top edge (fingers reach down past it to grip the
+        // sides); with nothing to carry it opens wide and pulls its fingers up.
+        const holding = carry ? carry.userData : null;
+        const tr = holding ? Math.max(0.2, holding.radius ?? 0.6) : 2.4;
+        const td = holding ? 1.4 + Math.min(1.2, (holding.height ?? 1) * 0.4) : 0.8; // 1.4 m: grabber → part top
+        crane.r = lerp(crane.r, tr, ck);
+        crane.depth = lerp(crane.depth, td, ck);
+        crane.grabber.userData.set(crane.r, crane.depth);
+        crane.grabber.rotation.y += dt * (carry ? 0 : 0.15); // slow slew while parked
       }
 
       // Cutaway: slice off the building between the camera and the rocket, and lift the roof
@@ -142,6 +158,71 @@ export function createWorkshopSite(scene) {
       }
     },
   };
+}
+
+/**
+ * Four-arm adaptive grabber (hangs from the crane's hook block, origin at its top).
+ * Each arm is a telescoping beam with a vertical finger, a diagonal hydraulic strut and a rubber
+ * pad; userData.set(r, depth) moves the pads to radius r and the finger tips down to y = −depth.
+ */
+function makeGrabber() {
+  const g = new THREE.Group();
+  g.name = 'grabber';
+  const steel = new THREE.MeshStandardMaterial({ color: 0x5b6470, metalness: 0.6, roughness: 0.4 });
+  const yellow = new THREE.MeshStandardMaterial({ color: 0xf2c230, metalness: 0.2, roughness: 0.55 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x22262c, roughness: 0.9 });
+  const chrome = new THREE.MeshStandardMaterial({ color: 0xd8dde3, metalness: 0.9, roughness: 0.2 });
+  const add = (parent, geo, mat, x = 0, y = 0, z = 0) => {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, z);
+    parent.add(m);
+    return m;
+  };
+  // Hub: slew motor, rotating ring, and a camera/laser eye underneath.
+  add(g, new THREE.CylinderGeometry(0.42, 0.5, 0.45, 20), steel, 0, -0.22);
+  add(g, new THREE.CylinderGeometry(0.62, 0.62, 0.14, 24), yellow, 0, -0.5);
+  add(g, new THREE.CylinderGeometry(0.12, 0.16, 0.12, 12), dark, 0, -0.62);
+  const eye = add(g, new THREE.SphereGeometry(0.06, 10, 8), new THREE.MeshBasicMaterial({ color: 0xff3030 }), 0, -0.69);
+  eye.name = 'grabber-eye';
+
+  const box = (w, h, d, ox = 0, oy = 0) => new THREE.BoxGeometry(w, h, d).translate(ox, oy, 0);
+  const arms = [0, 1, 2, 3].map((k) => {
+    const arm = new THREE.Group();
+    arm.rotation.y = (k * Math.PI) / 2 + Math.PI / 4;
+    g.add(arm);
+    add(arm, box(0.7, 0.2, 0.26, 0.35), yellow, 0.4, -0.5); // fixed outer sleeve
+    const inner = add(arm, box(1, 0.12, 0.16, 0.5), chrome, 0.8, -0.5); // telescoping inner beam (scaled)
+    const finger = new THREE.Group(); // slides along the beam
+    arm.add(finger);
+    add(finger, box(0.3, 0.3, 0.3), yellow, 0, -0.5); // carriage
+    const blade = add(finger, box(0.16, 1, 0.22, 0, -0.5), steel, 0, -0.5); // finger (scaled in y)
+    const pad = add(finger, box(0.08, 0.4, 0.34), dark, -0.1, -1); // rubber pad facing inward
+    const strut = add(arm, new THREE.CylinderGeometry(0.05, 0.05, 1, 8).translate(0, 0.5, 0), chrome); // hydraulic strut
+    return { inner, finger, blade, pad, strut };
+  });
+
+  const from = new THREE.Vector3();
+  const to = new THREE.Vector3();
+  const up = new THREE.Vector3(0, 1, 0);
+  g.userData.set = (r, depth) => {
+    const x = r + 0.14; // finger centre sits just outside the part
+    for (const a of arms) {
+      a.inner.scale.x = Math.max(0.05, x - 0.8);
+      a.finger.position.x = x;
+      const len = Math.max(0.3, depth - 0.5);
+      a.blade.scale.y = len;
+      a.pad.position.y = -0.5 - len + 0.25;
+      // Strut from the hub's underside to halfway down the finger.
+      from.set(0.35, -0.6, 0);
+      to.set(x - 0.08, -0.5 - len * 0.5, 0);
+      const d = to.clone().sub(from);
+      a.strut.position.copy(from);
+      a.strut.scale.y = d.length();
+      a.strut.quaternion.setFromUnitVectors(up, d.normalize());
+    }
+  };
+  g.userData.set(2.4, 0.8);
+  return g;
 }
 
 /** Flat ring (annulus) from radius a to b, between heights y0 and y1, with inner and outer walls. */

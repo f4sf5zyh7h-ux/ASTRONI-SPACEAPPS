@@ -240,6 +240,22 @@ button { font-family: var(--pixel); font-size: 10px; line-height: 1.6; border-ra
 .dv-bar { border-radius: 0; }
 .dv-seg { font-size: 16px; line-height: 1; }
 .brief h3 .muted { font-size: inherit; }
+/* Decluttered briefing: 4 steps, 3 numbers, the rest behind "Mission details". */
+.brief { width: min(680px, calc(100% - 32px)); }
+.brief blockquote { font-size: clamp(20px, 2.3vw, 26px); margin: 10px 0 20px; }
+.brief .brief-steps { list-style: none; padding: 0; margin: 0 0 18px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; font-size: 21px; line-height: 1.1; }
+.brief-steps li { display: flex; align-items: center; gap: 8px; padding: 10px; background: rgba(79,195,247,.07); border-left: 2px solid var(--accent); }
+.brief-steps b { font: 11px var(--pixel); color: var(--accent); }
+.brief-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.brief-stats div { display: flex; flex-direction: column; align-items: center; padding: 8px; border: 1px solid rgba(255,255,255,.08); }
+.brief-stats b { font-size: 26px; color: var(--accent); font-weight: 400; }
+.brief-stats span { font: 9px var(--pixel); color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-top: 4px; }
+.brief-more { margin-top: 14px; }
+.brief-more summary { cursor: pointer; font: 10px var(--pixel); color: var(--muted); letter-spacing: .08em; text-transform: uppercase; padding: 6px 0; }
+.brief-more summary:hover { color: var(--accent); }
+.brief-more[open] summary { color: var(--accent); }
+.brief-more .brief-facts { font-size: 17px; line-height: 1.4; margin: 6px 0 4px; }
+@media (max-width: 560px) { .brief .brief-steps { grid-template-columns: repeat(2, 1fr); } }
 body { font-variant-ligatures: none; }
 .title-screen footer { color: #8a97ad; }
 
