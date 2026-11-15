@@ -40,6 +40,19 @@ export function roomBelow(design, i, parts) {
  * Assemble a design (stack listed top → bottom) into one Three.js group,
  * standing on y = 0. Each stack entry's object has userData.index = its stack index.
  */
+/**
+ * Solar panels: 0 = stowed inside their box on the hull (launch, workshop), 1 = fully open (orbit).
+ * The wing slides/unfolds out along its length.
+ */
+export function setSolarDeploy(root, k) {
+  const e = k * k * (3 - 2 * k);
+  root.traverse((o) => {
+    if (o.name !== 'wing') return;
+    o.scale.x = Math.max(0.01, e);
+    o.visible = e > 0.005;
+  });
+}
+
 export function buildRocket(design, parts) {
   const group = new THREE.Group();
   const objects = [];
@@ -98,6 +111,7 @@ export function buildRocket(design, parts) {
     });
     y += h;
   }
+  setSolarDeploy(group, 0); // solar panels launch stowed and open once in orbit
 
   return { group, objects, height: y };
 }

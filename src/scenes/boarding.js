@@ -30,7 +30,6 @@ export function createBoardingScene() {
 
   // ---- rocket on the launch table ----
   const rocket = buildRocket(design, parts);
-  rocket.group.traverse((o) => { if (o.name === 'wing') o.rotation.z = -Math.PI / 2; }); // solar panels stay folded until orbit
   const BASE = padBase();
   rocket.group.position.y = BASE;
   scene.add(rocket.group);

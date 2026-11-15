@@ -3,7 +3,7 @@ import { PointerLockControls } from 'three/addons/controls/PointerLockControls.j
 import { autoLook } from '../ui/mouseLook.js';
 import { parts } from '../data/catalog.js';
 import { exampleDesign } from '../data/catalog.js';
-import { buildRocket } from '../render/rocketMesh.js';
+import { buildRocket, setSolarDeploy } from '../render/rocketMesh.js';
 import { addSpaceLighting, createStarfield, createEarth } from '../render/space.js';
 import { createAurora } from '../render/aurora.js';
 import { createNarrator } from '../ui/narrator.js';
@@ -68,6 +68,7 @@ export function createEvaScene() {
   const firstEngine = design.stack.findIndex((e) => e.engines || e.inside?.some((c) => c.engines) || /^tank/.test(e.part));
   const shipDesign = { stack: design.stack.slice(0, firstEngine > 0 ? firstEngine : design.stack.length), cargo: [] };
   const ship = buildRocket(shipDesign, parts).group;
+  setSolarDeploy(ship, 1); // in orbit: panels open
   ship.rotation.y = Math.PI / 2; // side hatch (+X in part space) now faces −Z, towards AURORA-7
   ship.position.set(satCentre.x + 2, satCentre.y - 3, satCentre.z + satSize.z / 2 + 16); // beside the bus: the wings span the view
   scene.add(ship);

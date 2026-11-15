@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { parts, DIAMETER, exampleDesign, setPhysicsMode } from '../data/catalog.js';
+import { parts, DIAMETER, exampleDesign } from '../data/catalog.js';
 import { casingDesign, standardCargo } from '../data/designs.js';
 import { analyzeDesign, radialSlots, sizesOf } from '../physics/rocket.js';
 import { simulateMission, missionLegs } from '../physics/mission.js';
@@ -52,8 +52,6 @@ export function createWorkshopScene() {
     mutate();
     rebuild();
   };
-
-  const physicsLabel = () => (state.physics === 'arcade' ? 'Physics: Arcade' : 'Physics: Real');
 
   const rebuild = () => {
     if (rocket) scene.remove(rocket.group);
@@ -557,7 +555,6 @@ export function createWorkshopScene() {
         <button data-act="clear" title="Remove everything">Clear</button>
         <button data-act="reference" title="Load a working example rocket">Example</button>
         <button data-act="xray" title="See inside the casings">X-ray</button>
-        <button data-act="physics" class="${state.physics === 'arcade' ? 'on' : ''}" title="Arcade: fuel 5× denser and solid boosters stronger than real, so compact rockets reach orbit. Real: true-to-life values.">${physicsLabel()}</button>
         <span class="ws-sym" title="How many copies of a side part are added at once">Side parts:
           ${[1, 2, 4].map((s) => `<button data-sym="${s}" class="${s === symmetry ? 'on' : ''}">×${s}</button>`).join('')}
         </span>
@@ -573,15 +570,6 @@ export function createWorkshopScene() {
         if (b.dataset.act === 'xray') { xrayToggle = !xrayToggle; b.classList.toggle('on', xrayToggle); setXray(xrayToggle); }
         if (b.dataset.act === 'clear' && design.stack.length) commit(() => (design.stack = []));
         if (b.dataset.act === 'reference') commit(() => (design = exampleDesign()));
-        if (b.dataset.act === 'physics') {
-          setPhysicsMode(state.physics === 'arcade' ? 'real' : 'arcade');
-          b.textContent = physicsLabel();
-          b.classList.toggle('on', state.physics === 'arcade');
-          toast(state.physics === 'arcade'
-            ? 'Arcade physics: fuel 5× denser and solid boosters much stronger than real, so compact rockets fly.'
-            : 'Real physics: true-to-life values. Reaching orbit needs a big rocket (try Example).');
-          rebuild();
-        }
         if (b.dataset.act === 'next') board();
       });
       ui.appendChild(bar);

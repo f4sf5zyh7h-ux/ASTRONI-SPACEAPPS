@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { parts } from '../data/catalog.js';
 import { exampleDesign } from '../data/catalog.js';
 import { simulateMission, missionLegs } from '../physics/mission.js';
-import { buildRocket, hullRadiusAt } from '../render/rocketMesh.js';
+import { buildRocket, hullRadiusAt, setSolarDeploy } from '../render/rocketMesh.js';
 import { createAurora } from '../render/aurora.js';
 import { createLaunchPad, padBase, addPadVehicles } from '../render/launchPad.js';
 import { createPadSetting } from '../render/padSetting.js';
@@ -110,12 +110,9 @@ export function createLaunchScene() {
   });
   const vacuumFlame = (k) => report.sections[k]?.vacuumOnly;
 
-  // Solar panels launch folded flat against the hull and open once in orbit.
-  const wings = [];
-  ship.traverse((o) => { if (o.name === 'wing') wings.push(o); });
-  const FOLDED = -Math.PI / 2; // wing hangs down along the hull
-  let deploy = 0; // 0 folded -> 1 open
-  const setWings = (k) => { for (const w of wings) w.rotation.z = FOLDED * (1 - ease(k)); };
+  // Solar panels launch stowed inside their boxes and open once in orbit.
+  let deploy = 0; // 0 stowed -> 1 open
+  const setWings = (k) => setSolarDeploy(ship, k);
   setWings(0);
 
   // AURORA-7 for the arrival.
