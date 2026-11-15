@@ -15,10 +15,12 @@ export function missionLegs(mission, approachId) {
 }
 
 /**
- * Fly the mission with physics only (no player decisions or random events yet).
+ * Fly the mission with physics. `effects` come from random events (physics/events.js):
+ * launchExtra (m/s more for launch), leakFrac (share of the active stage's fuel lost after the
+ * transfer), coastDv (an extra main-engine burn while coasting, e.g. a debris dodge).
  * Returns each leg's need vs what the ship delivered, and the first failure.
  */
-export function simulateMission(design, parts, mission, approachId) {
+export function simulateMission(design, parts, mission, approachId, effects = {}) {
   const report = analyzeDesign(design, parts);
   const need = missionLegs(mission, approachId);
   const legs = [];
@@ -66,7 +68,7 @@ export function simulateMission(design, parts, mission, approachId) {
     leg('launch', need.launch, need.launch, 'Thrust-to-weight below 1.2 at liftoff');
     return fail('launch', `Thrust-to-weight is ${first?.twr.toFixed(2) ?? 0} — the rocket needs at least 1.2 to climb away from the tower.`);
   }
-  const launchNeed = need.launch * (report.checks.fins ? 1 : 1 + mission.finWobblePenalty);
+  const launchNeed = need.launch * (report.checks.fins ? 1 : 1 + mission.finWobblePenalty) + (effects.launchExtra ?? 0);
   const fuelledStages = report.stages.filter((s) => s.dv > 0).length;
   if (!leg('launch', launchNeed, burn(launchNeed, true))) {
     const got = (legs[legs.length - 1].delivered / 1000).toFixed(2);
@@ -85,6 +87,13 @@ export function simulateMission(design, parts, mission, approachId) {
 
   // 2. Transfer up to the satellite's orbit.
   if (!leg('transfer', need.transfer, burn(need.transfer, false))) return fail('transfer', 'Ran out of fuel on the way up to AURORA-7.');
+
+  // Coasting: a fuel leak drains the active stage; a dodge burn spends main-engine Δv.
+  if (effects.leakFrac) {
+    const s = stages.find((st) => st.fuel > 0 && st.engines.length);
+    if (s) s.fuel *= 1 - effects.leakFrac;
+  }
+  if (effects.coastDv && !leg('dodge', effects.coastDv, burn(effects.coastDv, false))) return fail('dodge', 'Ran out of fuel during the debris dodge burn.');
 
   // 3. Rendezvous on RCS monoprop (separate pool, Isp from the thrusters).
   const rcsIsp = 230;

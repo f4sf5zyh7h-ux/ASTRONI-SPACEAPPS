@@ -11,6 +11,7 @@ import { createNarrator } from '../ui/narrator.js';
 import { transition, fadeTo } from '../ui/fade.js';
 import { state } from '../state.js';
 import missionData from '../data/missions.json';
+import { newSeed, seedName, shipTraits, rollEvents, eventCard, addEffects } from '../physics/events.js';
 
 // Launch cutscene, driven by the leg-by-leg physics result (CLAUDE.md §5, §16.7):
 // countdown → liftoff → the player's own stages separating → orbit → transfer → time warp
@@ -58,7 +59,25 @@ export function createLaunchScene() {
   const mission = missionData.missions.find((m) => m.id === state.missionId) ?? missionData.missions[0];
   const design = state.design?.stack.some((e) => e.part === 'capsule-2') ? state.design : exampleDesign();
   const approach = mission.approaches.find((a) => a.id === state.approach) ?? mission.approaches[0];
-  const sim = simulateMission(design, parts, mission, approach.id);
+  // This run's random events (physics/events.js), rolled from a seed so "Fly again" can replay them.
+  const seed = state.replaySeed ?? newSeed();
+  state.replaySeed = null;
+  const traits = shipTraits(design, simulateMission(design, parts, mission, approach.id).report);
+  const events = rollEvents(seed, { approachId: approach.id, traits });
+  const flight = { seed, log: [], hours: 0, injury: 0, score: 0, effects: {} };
+  state.flight = flight;
+  const record = (o) => {
+    flight.log.push(o.log);
+    flight.hours += o.hours ?? 0;
+    flight.injury = Math.max(flight.injury, o.injury ?? 0);
+    flight.score += o.score ?? 0;
+    flight.effects = addEffects(flight.effects, o);
+  };
+  // Engine-out is decided before liftoff (it changes the climb), and shown as it happens.
+  const engineOut = events.find((e) => e.id === 'engine-out');
+  if (engineOut) record(eventCard(engineOut, traits).outcome());
+  const coastEvents = events.filter((e) => e.id !== 'engine-out');
+  let sim = simulateMission(design, parts, mission, approach.id, flight.effects);
   const report = sim.report;
   const need = missionLegs(mission, approach.id);
 
@@ -134,12 +153,68 @@ export function createLaunchScene() {
   const camOffset = new THREE.Vector3(45, 30, 85); // chase offset (smoothed)
   const lookOffset = new THREE.Vector3(); // where the camera looks, relative to the ship
   let mapMode = false;
+  let warpT = 0;
   let ui;
   let manager;
   let narrator;
   let hud;
   const said = new Set();
   const say = (id, text) => { if (!said.has(id)) { said.add(id); narrator.say(text); } };
+
+  // ---- event alarms ----
+  let alarm = null; // { el, card, timer } while a decision is open (the time warp pauses)
+  let blackout = 0; // seconds of screen static left
+  let staticCv = null;
+  const nasaBadge = (n) => (n ? `<a class="nasa-badge" href="${n.href}" target="_blank" rel="noopener">NASA data · ${n.label}</a>` : '');
+  const openAlarm = (ev, info = false) => {
+    const card = eventCard(ev, traits);
+    narrator.say(card.say ?? card.title);
+    if (card.blackout) blackout = card.blackout;
+    const el = document.createElement('div');
+    el.className = 'alarm';
+    el.innerHTML = `<div class="alarm-tag">⚠ ALARM</div><h3>${card.title}</h3><p>${card.text}</p>${nasaBadge(card.nasa)}
+      ${card.timer ? '<div class="alarm-timer"><i></i></div>' : ''}
+      <div class="alarm-actions">${card.auto ? '<button data-i="ok" class="cta">Understood</button>' : card.choices.map((c, i) => `<button data-i="${i}" class="${i === 0 ? 'cta' : ''}">${c.label}</button>`).join('')}</div>`;
+    ui.appendChild(el);
+    alarm = { el, card, info, shown: 0, timer: card.timer ?? 0, left: card.timer ?? 0 };
+    el.addEventListener('click', (e) => {
+      const b = e.target.closest('button');
+      if (!b || !alarm) return;
+      closeAlarm(b.dataset.i === 'ok' ? card.outcome() : card.choices[Number(b.dataset.i)].outcome());
+    });
+  };
+  const closeAlarm = (o) => {
+    if (!alarm.info) { // info-only alarms (engine out) were already counted before liftoff
+      record(o);
+      narrator.say(o.log.split(':').slice(1).join(':').trim() || o.log);
+    }
+    alarm.el.remove();
+    alarm = null;
+  };
+  /** Skip: settle any events not yet seen with the first (safe) choice. */
+  const settleAll = () => {
+    if (alarm) closeAlarm(alarm.card.choices?.[0]?.outcome() ?? alarm.card.outcome());
+    for (const ev of coastEvents) if (!ev.done) { ev.done = true; const c = eventCard(ev, traits); record(c.auto ? c.outcome() : c.choices[0].outcome()); }
+    sim = simulateMission(design, parts, mission, approach.id, flight.effects);
+  };
+  const drawStatic = () => {
+    if (!staticCv) {
+      staticCv = document.createElement('canvas');
+      staticCv.width = 160; staticCv.height = 90;
+      staticCv.className = 'static';
+      ui.appendChild(staticCv);
+    }
+    staticCv.style.display = blackout > 0 ? 'block' : 'none';
+    if (blackout <= 0) return;
+    const g = staticCv.getContext('2d');
+    const img = g.createImageData(160, 90);
+    for (let i = 0; i < img.data.length; i += 4) {
+      const v = Math.random() * 255;
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+      img.data[i + 3] = 255;
+    }
+    g.putImageData(img, 0, 0);
+  };
 
   const setHud = ({ clock, alt, speed, stage, label }) => {
     hud.innerHTML = `
@@ -228,15 +303,16 @@ export function createLaunchScene() {
       <div class="brief-tag">${ok ? 'FLIGHT REPORT' : 'MISSION FAILED'}</div>
       <blockquote class="${ok ? 'good' : 'bad'}">${title}</blockquote>
       ${body}
+      ${flight.log.length ? `<h3>Events this flight <span class="muted">· seed ${seedName(seed)}</span></h3><ul class="db-causes">${flight.log.map((l) => `<li>${l}</li>`).join('')}</ul>` : ''}
       <div class="brief-actions">
-        <button data-act="retry">↺ Launch again</button>
+        <button data-act="retry" title="Same random events (seed ${seedName(seed)})">↺ Launch again</button>
         ${ok ? '<button data-act="workshop">Workshop</button><button class="cta" data-act="eva">Suit up ▶</button>'
     : '<button class="cta" data-act="workshop">Back to workshop (keep design)</button>'}
       </div>`;
     card.addEventListener('click', (e) => {
       if (e.target.dataset.act === 'eva') transition(manager, 'eva');
       if (e.target.dataset.act === 'workshop') transition(manager, 'workshop');
-      if (e.target.dataset.act === 'retry') transition(manager, 'launch');
+      if (e.target.dataset.act === 'retry') { state.replaySeed = seed; transition(manager, 'launch'); }
     });
     ui.appendChild(card);
   };
@@ -276,6 +352,7 @@ export function createLaunchScene() {
       skip.onclick = () => {
         skip.remove();
         narrator.stop();
+        settleAll();
         if (sim.failedAt) fail(sim.reason ?? 'Mission failed');
         else endCard(true, 'Arrived at AURORA-7', `<p>The approach went as planned.</p>${legTable()}`);
         phase = 'failed';
@@ -294,7 +371,9 @@ export function createLaunchScene() {
     },
     update(dt) {
       t += dt;
-      layer.tick(dt * (phase === 'warp' ? 60 : 1));
+      if (blackout > 0) { blackout -= dt; if (blackout <= 0 && alarm?.card.blackout) closeAlarm(alarm.card.outcome()); }
+      if (ui) drawStatic();
+      layer.tick(dt * (phase === 'warp' && !alarm ? 60 : 1));
       setting.update(camera, altKm);
       // Crew arm swings clear during the countdown; hold-downs open at liftoff.
       pad.update(dt, phase === 'countdown' ? (t < COUNTDOWN - 7 ? 'pad' : 'arm-away') : phase === 'stuck' ? 'arm-away' : 'release');
@@ -332,6 +411,8 @@ export function createLaunchScene() {
         ship.position.set(DOWNRANGE_KM * 1000 * turn ** 3, BASE + altKm * 1000, 0);
         ship.rotation.z = -1.3 * ease(Math.min(1, turn * 1.2)); // pitch over towards orbit
         for (const st of staging) if (p >= st.at && active <= st.k) separate(st.k);
+        if (engineOut && !engineOut.done && !alarm && p >= engineOut.at * 0.3) { engineOut.done = true; openAlarm(engineOut, true); }
+        if (alarm?.info && (alarm.shown += dt) > 7) closeAlarm({}); // clears itself while the climb goes on
         const f = flames[active];
         f.visible = true;
         const vac = vacuumFlame(active);
@@ -376,15 +457,25 @@ export function createLaunchScene() {
         }
       } else if (phase === 'warp') {
         // Map view: pull out until the whole Earth fits, follow the transfer, zoom back in.
-        const W = 13; // seconds
-        const u = Math.min(1, t / W);
+        const W = 16; // seconds
+        if (!alarm) warpT += dt;
+        const u = Math.min(1, warpT / W);
+        for (const ev of coastEvents) if (!ev.done && !alarm && u >= ev.at) { ev.done = true; openAlarm(ev); }
+        if (alarm?.timer) {
+          alarm.left -= dt;
+          const bar = alarm.el.querySelector('.alarm-timer i');
+          if (bar) bar.style.width = `${Math.max(0, alarm.left / alarm.timer) * 100}%`;
+          if (alarm.left <= 0) closeAlarm(alarm.card.timeout());
+        }
         const zoom = u < 0.3 ? ease(u / 0.3) : u > 0.75 ? 1 - ease((u - 0.75) / 0.25) : 1;
         const dist = PARKING_KM + (MAP_FAR_KM - PARKING_KM) * zoom;
         const shipAlt = PARKING_KM + (TARGET_KM - PARKING_KM) * ease(Math.min(1, u * 1.4));
         if (mapMode) layer.mapView(dist, camera.aspect, 0.4 + u * Math.PI * 1.2, 0.6 + u * Math.PI * 1.15, shipAlt);
         const hours = approach.hours * u;
-        setHud({ clock: met(600 + hours * 3600), alt: `${Math.round(shipAlt)} km`, speed: `${(7.67 - 0.17 * u).toFixed(2)} km/s`, stage: 'UPPER', label: '⏩ TIME WARP' });
-        if (u >= 1 && mapMode) {
+        setHud({ clock: met(600 + hours * 3600), alt: `${Math.round(shipAlt)} km`, speed: `${(7.67 - 0.17 * u).toFixed(2)} km/s`, stage: 'UPPER', label: alarm ? '⚠ ALARM · WARP PAUSED' : blackout > 0 ? '✕ NO SIGNAL' : '⏩ TIME WARP' });
+        if (u >= 1 && mapMode && !alarm) {
+          sim = simulateMission(design, parts, mission, approach.id, flight.effects); // with the events' costs
+          if (sim.failedAt === 'dodge') return fail('Ran out of fuel during the debris dodge burn.');
           mapMode = null; // switching (render() treats null like "not following")
           fadeTo(1, 400).then(() => {
             mapMode = false;

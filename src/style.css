@@ -436,3 +436,16 @@ kbd {
 .ws-guide-more ul { margin: 0; padding-left: 18px; font-size: 16px; line-height: 1.3; }
 .ws-guide-more li { margin: 3px 0; }
 .ws-stats h3 .muted { font: inherit; color: var(--muted); }
+
+/* Event alarms (launch time warp) */
+.alarm { position: absolute; right: 30px; top: 50%; transform: translateY(-50%); width: min(440px, calc(100vw - 32px)); padding: 14px 16px;
+  background: rgba(24,6,8,.92); border: 2px solid var(--bad); box-shadow: 0 0 24px rgba(255,80,80,.35); animation: alarm-pulse 1s infinite alternate; z-index: 20; }
+@keyframes alarm-pulse { from { box-shadow: 0 0 10px rgba(255,80,80,.25); } to { box-shadow: 0 0 30px rgba(255,80,80,.6); } }
+.alarm-tag { font: 9px/1.6 var(--pixel); color: var(--bad); letter-spacing: .12em; }
+.alarm h3 { font: 13px/1.6 var(--pixel); margin: 4px 0 8px; color: #fff; }
+.alarm p { font-size: 19px; line-height: 1.25; margin: 0 0 10px; }
+.alarm-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.alarm-timer { height: 6px; background: rgba(255,255,255,.15); } .alarm-timer i { display: block; height: 100%; width: 100%; background: var(--bad); }
+.nasa-badge { display: inline-block; font: 8px/1.8 var(--pixel); padding: 2px 6px; border: 1px solid #6fb7ff; color: #9fd0ff; text-decoration: none; }
+.nasa-badge:hover { background: rgba(111,183,255,.15); }
+.static { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; opacity: .55; pointer-events: none; z-index: 15; mix-blend-mode: screen; }

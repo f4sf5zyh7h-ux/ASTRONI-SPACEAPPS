@@ -9,6 +9,7 @@ import { createNarrator } from '../ui/narrator.js';
 import { transition, flash } from '../ui/fade.js';
 import { state } from '../state.js';
 import missionData from '../data/missions.json';
+import { seedName } from '../physics/events.js';
 
 // Return (CLAUDE.md §16.10–11): de-orbit burn → capsule separates → re-entry fireball →
 // parachutes → splashdown, then the debrief with score (§9) and plain-English causes.
@@ -21,7 +22,8 @@ export function createReturnScene() {
   const mission = missionData.missions.find((m) => m.id === state.missionId) ?? missionData.missions[0];
   const design = state.design?.stack.some((e) => e.part === 'capsule-2') ? state.design : exampleDesign();
   const approach = mission.approaches.find((a) => a.id === state.approach) ?? mission.approaches[0];
-  const sim = simulateMission(design, parts, mission, approach.id);
+  const flight = state.flight ?? { seed: null, log: [], hours: 0, injury: 0, score: 0, effects: {} };
+  const sim = simulateMission(design, parts, mission, approach.id, flight.effects);
   const report = sim.report;
   const eva = state.eva ?? { repaired: true, dataModule: true, minutes: 50, injured: false, outcome: 'ok' };
 
@@ -101,9 +103,9 @@ export function createReturnScene() {
   const debrief = () => {
     phase = 'debrief';
     const crewHome = fate === 'splash';
-    const crewInjury = eva.injured || !crewHome ? 1 : 0;
+    const crewInjury = eva.injured || flight.injury || !crewHome ? 1 : 0;
     const success = crewHome && eva.repaired;
-    const hoursUsed = approach.hours + eva.minutes / 60 + 3;
+    const hoursUsed = approach.hours + eva.minutes / 60 + 3 + flight.hours; // + delays from events
     // Science counts only if the data module came home (§16.11): 100% within 24 h → 40% at 72 h.
     const sciRaw = hoursUsed <= 24 ? 1 : Math.max(0.4, 1 - (0.6 * (hoursUsed - 24)) / 48);
     const science = crewHome && eva.dataModule && eva.repaired ? sciRaw : 0;
@@ -116,13 +118,18 @@ export function createReturnScene() {
       ['Time bonus', timeBonus, `${Math.round(mission.deadlineH - hoursUsed)} h of life support unused`],
       ['Crew injury', -300 * crewInjury, `−300 × ${crewInjury}`],
     ];
+    if (flight.score) rows.push(['Radiation dose', flight.score, 'kept working through a solar flare']);
     const score = rows.reduce((s, r) => s + r[1], 0);
     const grade = !crewHome ? 'F' : score >= 1800 ? 'S' : score >= 1600 ? 'A' : score >= 1350 ? 'B' : score >= 1000 ? 'C' : 'F';
 
     // The main cause, in plain English with numbers.
     const deorbit = sim.legs.find((l) => l.id === 'deorbit');
     const causes = [];
-    if (fate === 'stranded') causes.push(`You needed ${Math.round(deorbit?.required ?? 183)} m/s for the de-orbit burn but only had ${Math.round(deorbit?.delivered ?? 0)} m/s left. Add fuel to the upper stage or make the crew section lighter.`);
+    if (fate === 'stranded') {
+      const ev = [flight.effects.coastDv ? `${flight.effects.coastDv} m/s went on the debris dodge` : '', flight.effects.leakFrac ? `the fuel leak drained ${Math.round(flight.effects.leakFrac * 100)}% of the stage` : ''].filter(Boolean).join(' and ');
+      causes.push(`You needed ${Math.round(deorbit?.required ?? 183)} m/s for the de-orbit burn but only had ${Math.round(deorbit?.delivered ?? 0)} m/s left${ev ? ` (${ev})` : ''}. Add fuel to the upper stage or make the crew section lighter.`);
+    }
+    if (flight.injury && crewHome) causes.push('The crew took a radiation dose by working through an X-class solar flare. Sheltering costs hours but keeps them safe.');
     if (fate === 'burnup') causes.push(report.checks.capsuleSeparates ? 'There was no heat shield under the capsule. Re-entering at 7.5 km/s heats the air in front of it to thousands of degrees.' : 'The capsule could not separate from the rocket, so its heat shield was blocked. Put a decoupler directly below the heat shield.');
     if (fate === 'crash') causes.push('There were no parachutes. The capsule hit the sea at around 150 m/s instead of about 8 m/s.');
     if (!eva.repaired) causes.push('The solar panel was not fixed, so AURORA-7 stays on battery and its science ends.');
@@ -150,6 +157,7 @@ export function createReturnScene() {
       </div>
       <h3>What happened</h3>
       <ul class="db-causes">${causes.map((c, i) => `<li class="${i === 0 ? 'main' : ''}">${c}</li>`).join('')}</ul>
+      ${flight.log.length ? `<h3>Events <span class="muted">· seed ${seedName(flight.seed)}</span></h3><ul class="db-causes">${flight.log.map((l) => `<li>${l}</li>`).join('')}</ul>` : ''}
       <h3>Score <span class="muted">= 1000·success + 500·science + 2·budget left + time bonus − 300·injury</span></h3>
       <table class="leg-table">${rows.map(([k, v, why]) => `<tr><td>${k}</td><td class="muted">${why}</td><td style="text-align:right">${v >= 0 ? '+' : ''}${v}</td></tr>`).join('')}
         <tr><td><b>Total</b></td><td></td><td style="text-align:right"><b>${score}</b></td></tr></table>
@@ -159,11 +167,12 @@ export function createReturnScene() {
       ${success ? '<div class="db-unlock">🔓 Robotic Arm unlocked for Mission 2</div>' : ''}
       <div class="brief-actions">
         <button data-act="missions">Mission select</button>
-        <button data-act="launch">↺ Fly again</button>
+        <button data-act="launch" data-replay="1" title="Same random events">↺ Fly again (same events)</button>
         <button class="cta" data-act="workshop">Back to workshop (keep design)</button>
       </div>`;
     card.addEventListener('click', (e) => {
       const a = e.target.dataset.act;
+      if (e.target.dataset.replay) state.replaySeed = flight.seed;
       if (a) transition(manager, a);
     });
     ui.appendChild(card);

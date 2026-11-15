@@ -369,3 +369,11 @@ Crew must return for a passing grade. Show the formula breakdown on the debrief 
 - `node scripts/balance.mjs '<overrides json>'` prints the balancing table; `npm test` locks the behaviour in.
 - **2026-11-15 changes:** side boosters default to a pair (×4 toggle → 2); fins sit in the slots between boosters (45° offset). Large SRB is GEM-63XL-class (representative): 2.5/2.7 MN, 48 t propellant. Docking port removed from the checklist and catalogue (the Specialist crosses on the tether); kept only in the legacy reference design so its §17 numbers hold. Example casing rocket: 2 SRBs, $221M, TWR 1.25, Standard +168 m/s, Fast fails.
 - **Arcade / Real physics (2026-11-15, human decision):** default is Arcade: inner-tank fuel ×5, solid boosters ×4 fuel and ×2.5 thrust (`src/data/physicsMode.js`), labelled in tooltips and togglable in the workshop toolbar. Real keeps representative values. Example rocket = `compactDesign()` (M-size, 2 SRBs) in Arcade, `casingDesign()` in Real. Launch pad is on an island in the open ocean.
+
+## 18. Random events (2026-11-15)
+
+- `src/physics/events.js` (pure): seeded RNG, `rollEvents(seed)` picks 1 / 2 / 3 events for Fast / Standard / Patient from engine-out, solar-flare (real DONKI records in `src/data/nasa/solar_flares.json`, from `scripts/fetch-flares.mjs`), debris warning, fuel leak (6 s timer); comms blackout always happens.
+- Effects feed `simulateMission(..., effects)`: `launchExtra` (engine out = 90 m/s ÷ bottom liquid engines), `leakFrac` (2% quick / 10% slow), `coastDv` (15 m/s dodge, new `dodge` leg). Hours, injury and score go to the debrief via `state.flight`.
+- Mitigations: battery/spare battery (shorter flare shelter), debris shield (hit does no damage), high-gain antenna (30 s blackout, no delay), more engines (cheaper engine-out).
+- Seed shown as `AURORA-####`; "Launch again" / "Fly again (same events)" replay it via `state.replaySeed`.
+- The Arcade/Real toggle was removed from the UI (Arcade always on).
