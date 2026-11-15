@@ -87,6 +87,7 @@ export function createArmScene() {
   let toastEl;
   let pipEl;
   let cardEl;
+  let goalEl;
   const listeners = [];
   const on = (o, type, fn) => { o.addEventListener(type, fn); listeners.push(() => o.removeEventListener(type, fn)); };
   const toast = (msg) => { toastEl.textContent = msg; toastEl.classList.add('show'); toastT = 3; };
@@ -137,8 +138,30 @@ export function createArmScene() {
     ui.appendChild(cardEl);
   };
 
+  const endInspection = () => {
+    if (phase !== 'inspect') return;
+    if (!found.size) return toast('Scan at least one fault first: move the grabber to an amber ring and HOLD C.');
+    phase = 'grab';
+    narrator.say(`Inspection logged, ${found.size} fault${found.size > 1 ? 's' : ''}. Now fetch the new panel: it's strapped to our cargo module, under the arm.`);
+  };
+
+  /** Big "what to do now" banner at the top of the screen. */
+  const showGoal = () => {
+    const n = Object.keys(DAMAGE).length;
+    const text = {
+      unfold: ['STEP 1 / 4', 'Unfolding the arm…'],
+      inspect: [`STEP 2 / 4 · DAMAGE FOUND ${found.size} / ${n}`, 'Move the grabber (<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> <kbd>R</kbd><kbd>F</kbd>) to an <b class="amber">amber ring</b> on AURORA-7 and <b>hold <kbd>C</kbd></b> to scan it. Press <kbd>Enter</kbd> when you\'re done looking.'],
+      grab: ['STEP 3 / 4', 'Bring the jaws to the <b class="blue">blue ring</b> on the new panel (strapped to our cargo module) and press <kbd>G</kbd> to grab it.'],
+      park: ['STEP 4 / 4', 'Carry the panel to the <b class="blue">blue outline</b> beside AURORA-7\'s broken mount and press <kbd>G</kbd> to let go.'],
+      done: ['DONE', 'Panel parked. Suit up for the spacewalk.'],
+    }[phase];
+    goalEl.innerHTML = `<div class="obj-tag">${text[0]}</div><div>${text[1]}</div>`;
+  };
+
   const pressG = () => {
     const g = arm.gripWorld();
+    if (phase === 'unfold') return toast('Wait for the arm to finish unfolding.');
+    if (phase === 'inspect') return toast('G grabs the panel, but first finish the inspection: hold C at the amber rings, then press Enter.');
     if (phase === 'grab') {
       const gp = grapple.getWorldPosition(new THREE.Vector3());
       if (g.distanceTo(gp) > GRAB_RANGE) return toast(`Not lined up: the grapple pin is ${g.distanceTo(gp).toFixed(1)} m from the jaws.`);
@@ -179,13 +202,10 @@ export function createArmScene() {
       skip.textContent = 'Skip ›';
       skip.onclick = () => { skip.remove(); if (phase !== 'done') { found.add('array'); site.parkPanel(); finish(); } };
       ui.appendChild(skip);
-      panelEl.addEventListener('click', (e) => {
-        if (e.target.dataset.act === 'inspected') {
-          if (!found.size) return toast('Scan the damage first: get close to the broken array and hold C.');
-          phase = 'grab';
-          narrator.say(`Inspection logged, ${found.size} fault${found.size > 1 ? 's' : ''}. Now grab the new panel.`);
-        }
-      });
+      panelEl.addEventListener('click', (e) => { if (e.target.dataset.act === 'inspected') endInspection(); });
+      goalEl = document.createElement('div');
+      goalEl.className = 'arm-goal';
+      ui.appendChild(goalEl);
 
       // From the side (beyond the broken wing) so the ship, the arm and the satellite all show.
       const mid = mountWorld.clone().lerp(site.hinge, 0.5);
@@ -200,9 +220,10 @@ export function createArmScene() {
       on(window, 'keydown', (e) => {
         keys.add(e.code);
         if (e.code === 'KeyG' && !e.repeat) pressG();
+        if (e.code === 'Enter' && !e.repeat) endInspection();
       });
       on(window, 'keyup', (e) => keys.delete(e.code));
-      narrator.say('Arm station. Unfolding the robotic arm. Inspect AURORA-7 for damage first, then bring the new panel across.');
+      narrator.say('Arm station. Unfolding the robotic arm. First inspect AURORA-7: steer the grabber to the amber rings and hold C to scan. Then bring the new panel across.');
     },
     exit() {
       listeners.forEach((off) => off());
@@ -283,6 +304,7 @@ export function createArmScene() {
             found.add(k);
             scanning = null;
             narrator.say(`Logged: ${DAMAGE[k].name.toLowerCase()}.`);
+            if (found.size === Object.keys(DAMAGE).length) setTimeout(endInspection, 1500); // found everything
           }
         } else if (!scanning) toast('Nothing to scan here. Get closer to the satellite.');
       } else scanning = null;
@@ -295,7 +317,7 @@ export function createArmScene() {
       ghost.material.opacity = 0.35 + Math.sin(t * 4) * 0.2;
 
       if (toastT > 0 && (toastT -= dt) <= 0) toastEl.classList.remove('show');
-      if (panelEl && Math.floor(t * 8) !== Math.floor((t - dt) * 8)) showPanel();
+      if (panelEl && Math.floor(t * 8) !== Math.floor((t - dt) * 8)) { showPanel(); showGoal(); }
       if (pipEl) pipEl.querySelector('i').style.width = scanning ? `${(scanT / SCAN_TIME) * 100}%` : '0';
     },
   };
