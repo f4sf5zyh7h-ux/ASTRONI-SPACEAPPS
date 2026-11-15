@@ -150,3 +150,6 @@ vite.config.ts.timestamp-*
 
 # Temporary model-export files
 _export_tmp/
+
+.vercel
+.env*
