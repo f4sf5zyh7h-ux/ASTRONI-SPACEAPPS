@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+import { autoLook } from '../ui/mouseLook.js';
 import { parts } from '../data/catalog.js';
 import { exampleDesign } from '../data/catalog.js';
 import { buildRocket } from '../render/rocketMesh.js';
@@ -127,6 +128,7 @@ export function createEvaScene() {
   scene.add(lamp, lamp.target);
 
   let controls;
+  let look = null;
   let ui;
   let manager;
   let narrator;
@@ -189,7 +191,7 @@ export function createEvaScene() {
       ui.appendChild(hud);
       const help = document.createElement('div');
       help.className = 'fp-help';
-      help.innerHTML = '<div><kbd>Click</kbd> look</div><div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> thrust</div><div><kbd>Space</kbd>/<kbd>Shift</kbd> up / down</div><div><kbd>X</kbd> brake · hold <kbd>E</kbd> work</div>';
+      help.innerHTML = '<div>Move the mouse to look</div><div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> thrust</div><div><kbd>Space</kbd>/<kbd>Shift</kbd> up / down</div><div><kbd>X</kbd> brake · hold <kbd>E</kbd> work</div>';
       ui.appendChild(help);
       setTimeout(() => help.classList.add('gone'), 12000);
       const cross = document.createElement('div');
@@ -200,13 +202,15 @@ export function createEvaScene() {
       camera.lookAt(hinge);
       controls = new PointerLockControls(camera, ctx.renderer.domElement);
       controls.pointerSpeed = 0.6;
-      on(ctx.renderer.domElement, 'click', () => controls.lock());
+      look = autoLook(controls, { enabled: () => !done }); // camera follows the mouse at once
+      on(ctx.renderer.domElement, 'click', () => look.tryLock());
       on(window, 'keydown', (e) => keys.add(e.code));
       on(window, 'keyup', (e) => keys.delete(e.code));
       narrator.say(`Hatch open. ${tether ? 'Tether clipped on.' : 'No tether packed. Careful, nothing will stop you drifting.'} AURORA-7 is ahead of you. Start with the four bolts on the broken array.`);
     },
     exit() {
       listeners.forEach((off) => off());
+      look?.dispose();
       controls?.unlock();
       controls?.dispose();
       narrator?.stop();

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+import { autoLook } from '../ui/mouseLook.js';
 import { parts } from '../data/catalog.js';
 import { buildRocket, hullRadiusAt } from '../render/rocketMesh.js';
 import { createPadSetting } from '../render/padSetting.js';
@@ -65,6 +66,13 @@ export function createBoardingScene() {
   const keys = new Set();
   let controls;
   let mode = 'walk'; // walk → entering → seated
+  let look = null;
+  const seatQuat = new THREE.Quaternion(); // seated: looking at the control pad
+  const mouseN = new THREE.Vector2(); // cursor position, −1…1 across the canvas
+  const headTurn = new THREE.Euler(0, 0, 0, 'YXZ');
+  // Seated head turn: nothing in the middle of the screen (so the pad stays still to click),
+  // turning more the closer the cursor gets to an edge.
+  const edge = (n) => Math.sign(n) * Math.max(0, Math.abs(n) - 0.35) / 0.65;
   let enterT = 0;
   let enterFrom;
   let enterLook;
@@ -158,11 +166,12 @@ export function createBoardingScene() {
     setObjective('Run the checks on the control pad, then LAUNCH');
     makeScreen();
     camera.lookAt(screen.position);
+    seatQuat.copy(camera.quaternion); // head turns from here as the mouse nears the screen edges
     camera.fov = 48; // lean in: the screen fills more of the view
     camera.updateProjectionMatrix();
     const tips = document.createElement('div');
     tips.className = 'fp-help';
-    tips.innerHTML = '<div>Click the screen to use it</div><div>Click elsewhere to look around · <kbd>Esc</kbd> mouse</div><div><kbd>1</kbd>–<kbd>6</kbd> screen pages</div>';
+    tips.innerHTML = '<div>Click the screen to use it</div><div>Move the mouse to the edges to look around</div><div><kbd>1</kbd>–<kbd>6</kbd> screen pages</div>';
     ui.appendChild(tips);
     const back = document.createElement('button');
     back.className = 'skip';
@@ -181,6 +190,7 @@ export function createBoardingScene() {
       camera.lookAt(0, pos.y - 0.6, 0); // face the rocket
       controls = new PointerLockControls(camera, ctx.renderer.domElement);
       controls.pointerSpeed = 0.7;
+      look = autoLook(controls, { enabled: () => mode === 'walk' }); // camera follows the mouse at once
 
       objective = document.createElement('div');
       objective.className = 'objective';
@@ -189,7 +199,7 @@ export function createBoardingScene() {
 
       help = document.createElement('div');
       help.className = 'fp-help';
-      help.innerHTML = `<div><kbd>Click</kbd> look around</div><div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</div><div><kbd>E</kbd> interact</div><div><kbd>Esc</kbd> free the mouse</div>`;
+      help.innerHTML = `<div>Move the mouse to look around</div><div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</div><div><kbd>E</kbd> interact</div><div><kbd>Esc</kbd> free the mouse</div>`;
       ui.appendChild(help);
 
       const cross = document.createElement('div');
@@ -208,11 +218,16 @@ export function createBoardingScene() {
         if (mode === 'entering') return;
         if (mode === 'seated') {
           const uv = screenUv(e);
-          if (uv) return pad2d.click(uv); // pressed something on the screen
+          if (uv) pad2d.click(uv); // pressed something on the screen
+          return; // seated: the cursor stays free for the control pad
         }
-        controls.lock();
+        look.tryLock();
       });
-      on(canvas, 'pointermove', (e) => { if (mode === 'seated') pad2d.hover(screenUv(e)); });
+      on(canvas, 'pointermove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        mouseN.set(((e.clientX - rect.left) / rect.width) * 2 - 1, ((e.clientY - rect.top) / rect.height) * 2 - 1);
+        if (mode === 'seated') pad2d.hover(screenUv(e));
+      });
       on(window, 'keydown', (e) => {
         keys.add(e.code);
         if (e.code === 'KeyE' && mode === 'walk' && prompt.classList.contains('show')) startEnter();
@@ -222,6 +237,7 @@ export function createBoardingScene() {
     },
     exit() {
       listeners.forEach((off) => off());
+      look?.dispose();
       controls?.unlock();
       controls?.dispose();
     },
@@ -235,6 +251,12 @@ export function createBoardingScene() {
     scene.environmentIntensity += ((inside < 1 ? 0.22 : 0.5) - scene.environmentIntensity) * k;
     cabinLights.forEach((l, n) => (l.intensity += ((inside < 1 ? CABIN_ON[n] : 0.25 * CABIN_ON[n]) - l.intensity) * k));
     setting.fill.intensity += ((inside < 1 ? 0.1 : 1.1) - setting.fill.intensity) * k;
+    if (mode === 'seated') {
+        const k2 = Math.min(1, dt * 4);
+        headTurn.y += (-edge(mouseN.x) * 0.75 - headTurn.y) * k2;
+        headTurn.x += (-edge(mouseN.y) * 0.45 - headTurn.x) * k2;
+        camera.quaternion.copy(seatQuat).multiply(new THREE.Quaternion().setFromEuler(headTurn));
+      }
     if (mode === 'walk') {
         // Move on the horizontal plane relative to where you're looking.
         const fwd = camera.getWorldDirection(new THREE.Vector3()).setY(0).normalize();

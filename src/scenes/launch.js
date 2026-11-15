@@ -132,6 +132,7 @@ export function createLaunchScene() {
   const dropped = [];
   const smoke = [];
   const groundCam = new THREE.Vector3(-22, 9, -95); // side-on: the tower (+X) stands clear to the right
+  const highCam = new THREE.Vector3(-40, 55, -150); // above the smoke cloud, a little further back
   const camLook = new THREE.Vector3(0, 40, 0);
   const camOffset = new THREE.Vector3(45, 30, 85); // chase offset (smoothed)
   const lookOffset = new THREE.Vector3(); // where the camera looks, relative to the ship
@@ -446,7 +447,12 @@ export function createLaunchScene() {
         else camLook.lerp(centre, Math.max(w, Math.min(1, dt * 2))); // locks on during the swing
         const shake = flames[0].visible && altKm < 1 ? 0.25 * (1 - w) : 0;
         const chase = centre.clone().add(camOffset);
-        camera.position.copy(groundCam).lerp(chase, w)
+        // Once the exhaust cloud billows out (from ignition), the ground camera climbs and pulls back
+        // over the smoke so the rocket stays in view.
+        const sinceIgnition = phase === 'ascent' ? 3 + t : Math.max(0, t - (COUNTDOWN - 3));
+        const rise = ease(Math.min(1, sinceIgnition / 5));
+        const ground = groundCam.clone().lerp(highCam, rise);
+        camera.position.copy(ground).lerp(chase, w)
           .add(new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(shake));
         camera.lookAt(camLook);
       } else {
