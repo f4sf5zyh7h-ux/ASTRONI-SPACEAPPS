@@ -22,6 +22,21 @@ export function openTop(entry, parts) {
 }
 
 /**
+ * Room for the engines of stack entry i to hang into: decoupler rings are hollow, so the engines
+ * pass straight through them into the open top of the casing (or interstage) underneath.
+ */
+function roomBelow(design, i, parts) {
+  let room = 0;
+  for (let k = i + 1; k < design.stack.length; k++) {
+    const e = design.stack[k];
+    const p = parts.get(e.part);
+    if (p?.role === 'decoupler' && !p.sleeve && !p.interior) { room += p.height; continue; }
+    return room + openTop(e, parts);
+  }
+  return room;
+}
+
+/**
  * Assemble a design (stack listed top → bottom) into one Three.js group,
  * standing on y = 0. Each stack entry's object has userData.index = its stack index.
  */
@@ -39,7 +54,7 @@ export function buildRocket(design, parts) {
     // Engines hanging out of a casing sit inside the open top of what's below (interstage, skirt
     // or a hollow casing's free space); whatever doesn't fit becomes a gap.
     const hang = i < design.stack.length - 1 ? hangBelow(entry, parts) : 0;
-    if (hang > 0) y += Math.max(0, hang - openTop(design.stack[i + 1], parts));
+    if (hang > 0) y += Math.max(0, hang - roomBelow(design, i, parts));
 
     // The heat shield's domed underside nests down into the ring below it (no floating gap).
     if (part.role === 'heat-shield' && i < design.stack.length - 1) y -= Math.min(0.3, part.height * 0.7);
