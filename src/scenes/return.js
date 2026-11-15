@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { parts } from '../data/catalog.js';
-import { casingDesign } from '../data/designs.js';
+import { exampleDesign } from '../data/catalog.js';
 import { simulateMission } from '../physics/mission.js';
 import { buildRocket } from '../render/rocketMesh.js';
 import { createPadSetting } from '../render/padSetting.js';
@@ -19,7 +19,7 @@ const OCEAN_X = 12000; // splash down in the ocean east of the coast (padSetting
 
 export function createReturnScene() {
   const mission = missionData.missions.find((m) => m.id === state.missionId) ?? missionData.missions[0];
-  const design = state.design?.stack.some((e) => e.part === 'capsule-2') ? state.design : casingDesign();
+  const design = state.design?.stack.some((e) => e.part === 'capsule-2') ? state.design : exampleDesign();
   const approach = mission.approaches.find((a) => a.id === state.approach) ?? mission.approaches[0];
   const sim = simulateMission(design, parts, mission, approach.id);
   const report = sim.report;

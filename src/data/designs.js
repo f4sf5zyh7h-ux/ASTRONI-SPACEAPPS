@@ -87,3 +87,25 @@ export function naiveSingleStage({ tanks = 4, engines = 9 } = {}) {
   stack.push({ part: 'engine-mount-L', engines: { part: 'engine-booster', count: engines } });
   return { stack, cargo: standardCargo() };
 }
+
+/**
+ * Compact medium-size rocket (the workshop "Example" in Arcade physics): capsule + cargo module,
+ * an M upper stage with 3 small engines, a decoupler, and an M first stage with 3 boosters,
+ * fins and 2 solid boosters. Only reaches orbit with Arcade values (see physicsMode.js).
+ */
+export function compactDesign() {
+  return {
+    stack: [
+      { part: 'parachutes' }, { part: 'capsule-2' }, { part: 'heat-shield' }, { part: 'decoupler-M' },
+      { part: 'cargo-module', radial: [{ part: 'rcs', count: 4 }, { part: 'solar-panel', count: 2 }] },
+      { part: 'casing-m-med', inside: [{ part: 'thrust-plate-m', engines: { part: 'engine-s', count: 3 } }, { part: 'inner-tank-m-short' }] },
+      { part: 'decoupler-M' },
+      {
+        part: 'casing-m-long',
+        inside: [{ part: 'thrust-plate-m', engines: { part: 'engine-booster', count: 3 } }, { part: 'inner-tank-m-long' }],
+        radial: [{ part: 'fin', count: 4 }, { part: 'srb', count: 2 }],
+      },
+    ],
+    cargo: standardCargo(),
+  };
+}

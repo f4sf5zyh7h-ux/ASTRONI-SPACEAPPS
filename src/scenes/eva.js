@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { parts } from '../data/catalog.js';
-import { casingDesign } from '../data/designs.js';
+import { exampleDesign } from '../data/catalog.js';
 import { buildRocket } from '../render/rocketMesh.js';
 import { addSpaceLighting, createStarfield, createEarth } from '../render/space.js';
 import { createAurora } from '../render/aurora.js';
@@ -25,7 +25,7 @@ const has = (design, id) => (design.cargo ?? []).some((c) => c.item === id && c.
 const hasPart = (design, id) => design.stack.some((e) => e.part === id);
 
 export function createEvaScene() {
-  const design = state.design?.stack.some((e) => e.part === 'capsule-2') ? state.design : casingDesign();
+  const design = state.design?.stack.some((e) => e.part === 'capsule-2') ? state.design : exampleDesign();
   const tether = has(design, 'tether');
   const toolkit = has(design, 'toolkit');
   const docked = true; // no docking port needed: the Specialist flies across on the tether

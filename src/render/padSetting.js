@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { SUN_DIR } from './space.js';
 
-// Daytime surroundings for the launch pad: sky dome with sun, coastal scrubland with an ocean
-// to the east, scattered trees, haze. Everything fades out with altitude so the full-size
+// Daytime surroundings for the launch pad: sky dome with sun, a small island in the open ocean
+// (sandy shore, a few trees), haze. Everything fades out with altitude so the full-size
 // Earth layer (earthLayer.js) takes over as the rocket climbs. 1 unit = 1 m.
 
 const HORIZON = new THREE.Color(0.72, 0.84, 0.96);
@@ -59,24 +59,26 @@ export function createPadSetting(scene) {
     land.add(m);
     return m;
   };
-  flat(new THREE.PlaneGeometry(80000, 80000), 0x6d7a45, 0, 0, -1.6, { polygonOffset: true, polygonOffsetFactor: 8, polygonOffsetUnits: 8 }); // layers spaced apart so they don't flicker from altitude
-  flat(new THREE.PlaneGeometry(400, 80000), 0xd9c9a0, 2600, 0, -0.6);
-  flat(new THREE.PlaneGeometry(40000, 80000), 0x2f6f9a, 22800, 0, -0.58, { roughness: 0.25, metalness: 0.1 });
-  flat(new THREE.PlaneGeometry(18, 2400), 0x8a8a86, 0, -1260, -0.55); // continues the pad model's crawlerway
+  // The pad sits on a small island in the open ocean: sea everywhere, a sandy shore, the pad's grass.
+  // Layers are spaced apart vertically so they don't flicker when seen from altitude.
+  flat(new THREE.PlaneGeometry(80000, 80000), 0x1f5f8b, 0, 0, -1.6, { roughness: 0.22, metalness: 0.15, polygonOffset: true, polygonOffsetFactor: 8, polygonOffsetUnits: 8 });
+  flat(new THREE.CircleGeometry(300, 64), 0x2f86a8, 0, 0, -1.2, { roughness: 0.3 }); // shallow water round the island
+  flat(new THREE.CircleGeometry(250, 64), 0xd9c9a0, 0, 0, -0.85); // beach
+  flat(new THREE.CircleGeometry(222, 64), 0x6d7a45, 0, 0, -0.6); // grass (covers the pad model's square corners)
 
-  // Trees: low-poly cones scattered around, none on the pad or the road.
+  // A few palms-ish trees on the island's edge, clear of the pad square and the crawlerway.
   const treeGeo = new THREE.ConeGeometry(2.2, 7, 6).translate(0, 3.5, 0);
-  const trees = new THREE.InstancedMesh(treeGeo, new THREE.MeshStandardMaterial({ color: 0x3f5a2a, roughness: 1, transparent: true }), 700);
+  const trees = new THREE.InstancedMesh(treeGeo, new THREE.MeshStandardMaterial({ color: 0x3f5a2a, roughness: 1, transparent: true }), 90);
   const m4 = new THREE.Matrix4();
   for (let i = 0; i < trees.count; i++) {
     let x;
     let z;
     do {
-      const r = 90 + Math.random() * 2300;
+      const r = 160 + Math.random() * 55;
       const a = Math.random() * Math.PI * 2;
       x = Math.cos(a) * r;
       z = Math.sin(a) * r;
-    } while (x > 2300 || (Math.abs(x) < 20 && z < 0) || Math.hypot(x, z) < 170); // not on the pad or road
+    } while ((Math.abs(x) < 20 && z < 0) || (Math.abs(x) < 152 && Math.abs(z) < 152)); // not on the pad square or road
     const s = 0.7 + Math.random() * 0.9;
     m4.makeScale(s, s * (0.8 + Math.random() * 0.6), s).setPosition(x, -0.6, z);
     trees.setMatrixAt(i, m4);

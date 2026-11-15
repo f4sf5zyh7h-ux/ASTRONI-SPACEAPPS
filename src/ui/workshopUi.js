@@ -1,5 +1,6 @@
 // Workshop HTML panels: parts catalogue (left), live stats + checklist (right).
-import { partList, itemList, parts, DIAMETER, isLocked } from '../data/catalog.js';
+import { partList, itemList, parts, DIAMETER, isLocked, realPart } from '../data/catalog.js';
+import { state } from '../state.js';
 import { PART_INFO } from '../data/partInfo.js';
 import { partThumbnails } from '../render/thumbnails.js';
 import { tonnes, kms, kN, money } from './format.js';
@@ -105,7 +106,9 @@ function partDetails(p) {
   return `<b>${p.name}</b><p>${PART_INFO[p.id] ?? ''}</p>
     <table>${rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('')}</table>
     ${isLocked(p) ? `<p class="bad">Unlocks in Mission ${p.lockedUntil}</p>` : ''}
-    <p class="muted">Representative values for this class of hardware.</p>`;
+    ${state.physics === 'arcade' && realPart(p.id) && realPart(p.id).propellant !== p.propellant
+    ? `<p class="muted">Arcade physics: boosted from the real ${tonnes(realPart(p.id).propellant, 1)} of fuel${p.fuel === 'solid' ? ` and ${kN(realPart(p.id).thrustSL)} thrust` : ''}. Switch to Real in the toolbar for true values.</p>`
+    : '<p class="muted">Representative values for this class of hardware.</p>'}`;
 }
 
 const CHECKS = [

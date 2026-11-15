@@ -7,4 +7,5 @@ export const state = {
   design: null,
   loadout: [],
   approach: 'standard',
+  physics: 'arcade', // 'arcade' (boosted fuel + boosters) or 'real' (see data/physicsMode.js)
 };

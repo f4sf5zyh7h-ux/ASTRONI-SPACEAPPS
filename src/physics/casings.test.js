@@ -44,3 +44,20 @@ describe('casings and internals', () => {
     expect(simulateMission(d, parts, mission, 'fast').success).toBe(false);
   });
 });
+
+describe('arcade physics', () => {
+  it('compact example: valid, passes Standard, still fails Fast', async () => {
+    const { arcadeData } = await import('../data/physicsMode.js');
+    const { compactDesign } = await import('../data/designs.js');
+    const arcade = indexParts(arcadeData(data));
+    const d = compactDesign();
+    const a = analyzeDesign(d, arcade);
+    expect(a.errors).toEqual([]);
+    expect(a.cost).toBeLessThanOrEqual(mission.budget);
+    expect(Object.values(a.checks).every(Boolean)).toBe(true);
+    expect(simulateMission(d, arcade, mission, 'standard').success).toBe(true);
+    expect(simulateMission(d, arcade, mission, 'fast').success).toBe(false);
+    // Real values: the same rocket can't reach orbit.
+    expect(simulateMission(d, parts, mission, 'standard').success).toBe(false);
+  });
+});
