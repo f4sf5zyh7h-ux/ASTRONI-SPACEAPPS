@@ -16,7 +16,7 @@ const TABS = [
 ];
 
 /** Cargo items: a picture (emoji) and why you'd pack it. */
-const ITEM_INFO = {
+export const ITEM_INFO = {
   'replacement-panel': ['🛰️', 'The new solar panel for AURORA-7. The whole point of the mission: without it there is nothing to repair.'],
   toolkit: ['🧰', 'Tools to unbolt the broken panel. Also frees a stuck bolt on the spacewalk.'],
   tether: ['🪢', 'Safety rope for the Specialist. Without one, a slip means drifting away from the ship.'],

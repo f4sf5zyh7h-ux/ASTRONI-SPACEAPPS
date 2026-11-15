@@ -9,6 +9,7 @@ import { createAurora } from '../render/aurora.js';
 import { createNarrator } from '../ui/narrator.js';
 import { transition, flash } from '../ui/fade.js';
 import { state } from '../state.js';
+import { ITEM_INFO } from '../ui/workshopUi.js';
 
 // Spacewalk (CLAUDE.md §16.8–9): first person in a suit with a jetpack. Fly from the ship's
 // hatch to AURORA-7, unbolt the broken array, fetch the new panel from the cargo module, fit it,
@@ -120,10 +121,63 @@ export function createEvaScene() {
   const marker = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.04, 8, 32), new THREE.MeshBasicMaterial({ color: 0x4fc3f7, transparent: true, blending: THREE.AdditiveBlending, depthTest: false }));
   marker.renderOrder = 5;
   scene.add(marker);
-  // Tether line from the hatch to you.
-  const tetherLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([hatch, pos]), new THREE.LineBasicMaterial({ color: 0xffe066 }));
-  tetherLine.visible = tether;
-  scene.add(tetherLine);
+  // Tether point beside the hatch: a yellow handrail and a D-ring on a base plate, bolted to the hull
+  // (like the handrails and tether rings on real spacecraft). The rope runs from the ring to your suit.
+  const anchor = new THREE.Vector3();
+  const anchorGroup = new THREE.Group();
+  {
+    const metal = new THREE.MeshStandardMaterial({ color: 0x9aa0a8, metalness: 0.8, roughness: 0.35 });
+    const rail = new THREE.MeshStandardMaterial({ color: 0xe0b23a, metalness: 0.5, roughness: 0.4 });
+    const plate = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.04, 0.28), metal);
+    plate.position.y = 0.02;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.016, 8, 20, Math.PI), metal);
+    ring.position.y = 0.04;
+    const hr = new THREE.Group(); // handrail: two posts and a bar
+    for (const z of [-0.3, 0.3]) {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.08, 8), rail);
+      post.position.set(0, 0.04, z);
+      hr.add(post);
+    }
+    const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.64, 8), rail);
+    bar.rotation.x = Math.PI / 2;
+    bar.position.y = 0.08;
+    hr.add(bar);
+    hr.position.x = -0.25;
+    anchorGroup.add(plate, ring, hr);
+    // Find the hull surface beside the hatch with a ray from outside.
+    const from = capsule ? capsule.localToWorld(new THREE.Vector3(5, 1.0, 0.7)) : hatch.clone();
+    const to = capsule ? capsule.localToWorld(new THREE.Vector3(0, 1.0, 0.7)) : hatch.clone();
+    const ray = new THREE.Raycaster(from, to.clone().sub(from).normalize(), 0, 10);
+    const hit = capsule ? ray.intersectObject(capsule, true)[0] : null;
+    const normal = hit?.face ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld) : to.clone().sub(from).normalize().negate();
+    anchorGroup.position.copy(hit ? hit.point : hatch);
+    anchorGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
+    scene.add(anchorGroup);
+    scene.updateMatrixWorld(true);
+    ring.getWorldPosition(anchor).addScaledVector(normal, 0.07);
+  }
+  // The rope: a thin braided tube, slack when you're close and pulled straight at full length.
+  const ropeMat = new THREE.MeshStandardMaterial({ color: 0xe9e5da, roughness: 0.9 });
+  const rope = new THREE.Mesh(new THREE.BufferGeometry(), ropeMat);
+  rope.visible = tether;
+  rope.frustumCulled = false;
+  scene.add(rope);
+  const clip = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.012, 6, 14), new THREE.MeshStandardMaterial({ color: 0x9aa0a8, metalness: 0.8, roughness: 0.35 }));
+  clip.position.copy(anchor);
+  clip.visible = tether;
+  scene.add(clip);
+  const slackDir = new THREE.Vector3(0.3, -1, 0.2).normalize();
+  const updateRope = (t) => {
+    const end = pos.clone().add(new THREE.Vector3(0, -0.55, 0)).addScaledVector(camera.getWorldDirection(new THREE.Vector3()), -0.15); // suit waist
+    const d = anchor.distanceTo(end);
+    const slack = Math.max(0, TETHER_LEN - d) / TETHER_LEN;
+    const along = end.clone().sub(anchor).normalize();
+    const side = slackDir.clone().addScaledVector(along, -slackDir.dot(along)).normalize();
+    const mid = anchor.clone().lerp(end, 0.5).addScaledVector(side, slack * Math.min(d, 8) * 0.35 + Math.sin(t * 0.7) * 0.05 * slack);
+    const curve = new THREE.QuadraticBezierCurve3(anchor, mid, end);
+    rope.geometry.dispose();
+    rope.geometry = new THREE.TubeGeometry(curve, 48, 0.022, 6, false);
+  };
   // Suit lamp so the work area isn't black on the shadow side.
   const lamp = new THREE.SpotLight(0xfff4e0, 6, 25, 0.5, 0.5, 1.5);
   scene.add(lamp, lamp.target);
@@ -134,6 +188,8 @@ export function createEvaScene() {
   let manager;
   let narrator;
   let hud;
+  let inv;
+  let invHtml = '';
   const listeners = [];
   const on = (t, type, fn) => { t.addEventListener(type, fn); listeners.push(() => t.removeEventListener(type, fn)); };
 
@@ -156,7 +212,22 @@ export function createEvaScene() {
     setTimeout(() => transition(manager, 'return', {}, 900), 4500);
   };
 
+  const stepDone = (id) => stepI > steps.findIndex((x) => x.id === id);
+  const showInventory = () => {
+    const row = (icon, name, status, cls = '') => `<div class="inv-row ${cls}"><i>${icon}</i><b>${name}</b><span>${status}</span></div>`;
+    const panel = stepDone('fit') ? 'Fitted ✔' : stepDone('fetch') ? 'In your hands' : 'In the cargo module';
+    const data = stepDone('data') ? 'In your hands' : 'On AURORA-7';
+    const html = `<div class="obj-tag">INVENTORY</div>
+      ${row(ITEM_INFO.toolkit[0], 'Toolkit', toolkit ? 'Torque wrench, bolt driver' : 'Not packed!', toolkit ? '' : 'bad')}
+      ${row(ITEM_INFO.tether[0], 'Tether', tether ? 'Clipped to the ship' : 'Not packed: drift risk', tether ? '' : 'bad')}
+      ${has(design, 'spare-o2') ? row(ITEM_INFO['spare-o2'][0], 'Spare O₂', '+35% oxygen') : ''}
+      ${row(ITEM_INFO['replacement-panel'][0], 'New solar panel', panel, stepDone('fetch') && !stepDone('fit') ? 'held' : '')}
+      ${row('💾', 'Data module', data, stepDone('data') ? 'held' : '')}`;
+    if (html !== invHtml) { invHtml = html; inv.innerHTML = html; }
+  };
+
   const showHud = () => {
+    showInventory();
     const s = steps[stepI];
     const dist = s ? pos.distanceTo(s.pos) : 0;
     const o2Pct = Math.max(0, Math.round(o2 * 100));
@@ -190,11 +261,20 @@ export function createEvaScene() {
       hud = document.createElement('div');
       hud.className = 'eva-hud';
       ui.appendChild(hud);
+      // Controls card (H hides it) and the tool inventory.
       const help = document.createElement('div');
-      help.className = 'fp-help';
-      help.innerHTML = '<div>Move the mouse to look</div><div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> thrust</div><div><kbd>Space</kbd>/<kbd>Shift</kbd> up / down</div><div><kbd>X</kbd> brake · hold <kbd>E</kbd> work</div>';
+      help.className = 'fp-help eva-controls';
+      help.innerHTML = `<div class="obj-tag">CONTROLS · H HIDES</div>
+        <div><span class="k">Look</span> Move the mouse</div>
+        <div><span class="k">Thrust</span> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div>
+        <div><span class="k">Up / down</span> <kbd>Space</kbd> <kbd>Shift</kbd></div>
+        <div><span class="k">Brake</span> <kbd>X</kbd></div>
+        <div><span class="k">Work</span> hold <kbd>E</kbd></div>`;
       ui.appendChild(help);
-      setTimeout(() => help.classList.add('gone'), 12000);
+      on(window, 'keydown', (e) => { if (e.code === 'KeyH') help.classList.toggle('gone'); });
+      inv = document.createElement('div');
+      inv.className = 'eva-inv';
+      ui.appendChild(inv);
       const cross = document.createElement('div');
       cross.className = 'crosshair';
       ui.appendChild(cross);
@@ -247,7 +327,7 @@ export function createEvaScene() {
       }
       if (!tether && fromHatch.length() > 90) return finish('drift');
       camera.position.copy(pos);
-      tetherLine.geometry.setFromPoints([hatch, pos.clone().add(new THREE.Vector3(0, -0.4, 0))]);
+      if (tether) updateRope(elapsed);
       lamp.position.copy(pos);
       lamp.target.position.copy(pos).addScaledVector(fwd, 5);
 

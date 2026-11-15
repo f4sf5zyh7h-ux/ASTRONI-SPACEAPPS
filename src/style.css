@@ -387,7 +387,19 @@ kbd {
 .load-bar.done { opacity: 0; }
 
 /* ---------- Spacewalk HUD ---------- */
-.visor { position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 160px 60px rgba(0,0,0,.85); border-radius: 46% / 40%; background: radial-gradient(ellipse at 30% 20%, rgba(255,255,255,.05), transparent 40%); }
+/* Helmet: you look out through the visor; the white suit helmet fills the rim, with a grey seal ring. */
+.visor { position: absolute; inset: 1.5% 2.5%; pointer-events: none; border-radius: 48% / 44%;
+  box-shadow: 0 0 0 4px #6f767f, 0 0 0 16px #a9afb7, 0 0 0 18px #8c939c, 0 0 0 100vmax #dfe2e6, inset 0 0 70px 18px rgba(0,0,0,.45);
+  background: radial-gradient(ellipse at 28% 18%, rgba(255,255,255,.08), transparent 38%); }
+.eva-controls .k { display: inline-block; width: 110px; color: var(--muted); }
+.eva-inv { position: absolute; right: 40px; bottom: 40px; width: 300px; padding: 8px 12px; font-size: 18px; line-height: 1.2;
+  background: rgba(5,7,13,.6); border-right: 3px solid var(--accent); pointer-events: none; }
+.inv-row { display: grid; grid-template-columns: 28px 1fr; column-gap: 6px; margin: 5px 0; }
+.inv-row i { grid-row: span 2; font-style: normal; font-size: 22px; }
+.inv-row b { font-weight: 400; }
+.inv-row span { color: var(--muted); font-size: 16px; }
+.inv-row.held span { color: var(--accent); }
+.inv-row.bad span { color: var(--bad); }
 .eva-hud { position: absolute; inset: 0; pointer-events: none; }
 .eva-o2 { position: absolute; right: 30px; top: 30px; width: 92px; height: 92px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: conic-gradient(var(--c) calc(var(--p) * 1%), rgba(255,255,255,.1) 0); }
 .eva-o2::before { content: ""; position: absolute; inset: 8px; border-radius: 50%; background: rgba(5,7,13,.85); }
