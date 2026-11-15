@@ -388,9 +388,11 @@ kbd {
 
 /* ---------- Spacewalk HUD ---------- */
 /* Helmet: you look out through the visor; the white suit helmet fills the rim, with a grey seal ring. */
-.visor { position: absolute; inset: 1.5% 2.5%; pointer-events: none; border-radius: 48% / 44%;
-  box-shadow: 0 0 0 4px #6f767f, 0 0 0 16px #a9afb7, 0 0 0 18px #8c939c, 0 0 0 100vmax #dfe2e6, inset 0 0 70px 18px rgba(0,0,0,.45);
-  background: radial-gradient(ellipse at 28% 18%, rgba(255,255,255,.08), transparent 38%); }
+.visor { position: absolute; inset: 0; pointer-events: none;
+  /* Helmet: clear visor in the middle; the shell around it fades from mid grey at the seal to near black at the edges. */
+  background:
+    radial-gradient(ellipse at 28% 18%, rgba(255,255,255,.06), transparent 30%),
+    radial-gradient(ellipse closest-side at 50% 50%, transparent 0 93%, rgba(0,0,0,.35) 95.5%, #1d2024 96%, #3b4047 97%, #5c636c 99%, #3a3f46 108%, #16181b 125%, #070809 150%); }
 .eva-controls .k { display: inline-block; width: 110px; color: var(--muted); }
 .eva-inv { position: absolute; right: 40px; bottom: 40px; width: 300px; padding: 8px 12px; font-size: 18px; line-height: 1.2;
   background: rgba(5,7,13,.6); border-right: 3px solid var(--accent); pointer-events: none; }

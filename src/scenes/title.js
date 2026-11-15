@@ -28,7 +28,6 @@ export function createTitleScene() {
         <h1 class="logo">ASTRONI</h1>
         <p class="tagline">Build it. Fly it. Fix it. Bring them home.</p>
         <button class="cta">Continue</button>
-        <div class="hint">or press Enter</div>
         <div class="load-bar" title="Loading the 3D parts"><i></i><span></span></div>
         <footer>NASA Space Apps Challenge 2026 · Space Mission Design Game</footer>`;
       ui.appendChild(root);
@@ -38,8 +37,8 @@ export function createTitleScene() {
       const paint = () => {
         const { done, total } = modelProgress;
         bar.querySelector('i').style.width = `${total ? (done / total) * 100 : 100}%`;
-        bar.querySelector('span').textContent = done >= total ? 'Ready' : `Loading parts ${done} / ${total}`;
-        bar.classList.toggle('done', done >= total);
+        bar.querySelector('span').textContent = `Loading parts ${done} / ${total}`;
+        bar.style.visibility = done >= total ? 'hidden' : 'visible'; // only shown while loading
       };
       paint();
       const timer = setInterval(paint, 150);

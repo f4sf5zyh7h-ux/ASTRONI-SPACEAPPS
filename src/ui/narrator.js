@@ -23,6 +23,15 @@ function scoreVoice(v) {
   return s;
 }
 
+/** Captions keep the written form; the voice gets words it can say (no spelled-out letters or symbols). */
+const SAY = [
+  [/AURORA-(\d+)/g, 'Aurora $1'], [/AURORA/g, 'Aurora'], [/ASTRONI/g, 'Astroni'],
+  [/O₂/g, 'oxygen'], [/Δv/g, 'delta-v'], [/km\/s/g, 'kilometres per second'], [/m\/s/g, 'metres per second'],
+  [/\bkm\b/g, 'kilometres'], [/\bkW\b/g, 'kilowatts'], [/°C/g, ' degrees'], [/\$(\d+)M/g, '$1 million dollars'],
+  [/\bRCS\b/g, 'R C S'], [/\bEVA\b/g, 'spacewalk'], [/…/g, '...'],
+];
+const spoken = (text) => SAY.reduce((s, [re, to]) => s.replace(re, to), text);
+
 let bestVoice = null;
 function refreshVoices() {
   const voices = synth?.getVoices() ?? [];
@@ -126,9 +135,12 @@ export function createNarrator(ui) {
 
   const speak = (text, who, t) => {
     if (!synth || t !== token) return done(t);
-    const u = new SpeechSynthesisUtterance(text);
-    u.onend = () => done(t);
-    u.onerror = () => done(t);
+    const u = new SpeechSynthesisUtterance(spoken(text));
+    // Chrome stops long utterances after ~15 s unless nudged; keep it going.
+    const keepAlive = setInterval(() => { if (synth.speaking) { synth.pause(); synth.resume(); } }, 10000);
+    u.onend = () => { clearInterval(keepAlive); done(t); };
+    u.onerror = () => { clearInterval(keepAlive); done(t); };
+    synth.resume(); // a paused/stuck queue would swallow the line
     if (bestVoice) u.voice = bestVoice;
     // Natural voices sound best untouched; only nudge the robotic ones.
     const natural = bestVoice && /natural|google/i.test(bestVoice.name);
