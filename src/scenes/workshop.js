@@ -4,9 +4,9 @@ import { parts, DIAMETER } from '../data/catalog.js';
 import { casingDesign, standardCargo } from '../data/designs.js';
 import { analyzeDesign, radialSlots, sizesOf } from '../physics/rocket.js';
 import { simulateMission, missionLegs } from '../physics/mission.js';
-import { buildRocket, slotAngle } from '../render/rocketMesh.js';
+import { buildRocket, slotAngle, roomBelow } from '../render/rocketMesh.js';
 import { createPartMesh, hangBelow } from '../render/partMesh.js';
-import { createCatalog, renderStats } from '../ui/workshopUi.js';
+import { createCatalog, renderStats, guideText, HELP_HTML } from '../ui/workshopUi.js';
 import { createWorkshopSite } from '../render/workshopSite.js';
 import { state } from '../state.js';
 import { transition } from '../ui/fade.js';
@@ -37,14 +37,14 @@ export function createWorkshopScene() {
   const site = createWorkshopSite(scene);
 
   // ---------- design state ----------
-  let design = state.design ? structuredClone(state.design) : { stack: [], cargo: standardCargo() };
+  let design = state.design ? structuredClone(state.design) : { stack: [], cargo: [] }; // cargo is packed from the Cargo tab
   const history = [];
   let symmetry = 4;
   /** Side boosters come in pairs by default (×4 would be four huge boosters); everything else follows the toggle. */
   const countFor = (part) => (part.fuel === 'solid' && symmetry === 4 ? 2 : symmetry);
   let rocket = null;
   let statsEl;
-  let hint;
+  let guide;
 
   const commit = (mutate) => {
     history.push(JSON.stringify(design));
@@ -69,8 +69,32 @@ export function createWorkshopScene() {
     state.design = structuredClone(design);
     targetY = rocket.group.position.y + Math.max(3, rocket.height * 0.45);
     if (statsEl) refreshStats();
-    if (hint) hint.style.display = design.stack.length ? 'none' : '';
+
     setXray(xrayToggle);
+  };
+
+  /** Height of the engines hanging down from the stage above casing i (through any decoupler rings). */
+  const hangAbove = (i) => {
+    for (let j = i - 1; j >= 0; j--) {
+      const e = design.stack[j];
+      const p = parts.get(e.part);
+      if (p.role === 'decoupler' && !p.sleeve && !p.interior) continue;
+      return hangBelow(e, parts);
+    }
+    return 0;
+  };
+  /** Engines that don't fit into the casing below them (the casing is packed too full). */
+  const engineRoomProblems = () => {
+    const out = [];
+    design.stack.forEach((e, i) => {
+      if (i === design.stack.length - 1) return;
+      const hang = hangBelow(e, parts);
+      const room = roomBelow(design, i, parts);
+      if (hang > room + 0.01) {
+        out.push(`The engines under the ${parts.get(e.part).name} need ${hang.toFixed(1)} m of free space at the top of the part below, but there is only ${room.toFixed(1)} m. Take a tank out of that casing (right-click) or use a longer casing.`);
+      }
+    });
+    return out;
   };
 
   const refreshStats = () => {
@@ -79,9 +103,11 @@ export function createWorkshopScene() {
     try {
       report = analyzeDesign(design, parts);
       sim = simulateMission(design, parts, mission, state.approach);
+      report.errors.push(...engineRoomProblems());
     } catch (err) {
       console.warn('[workshop] analysis failed', err);
     }
+    if (guide) guide.querySelector('.ws-guide-text').innerHTML = guideText(design, report, sim);
     renderStats(statsEl, {
       design, report, sim, mission,
       need: missionLegs(mission, state.approach),
@@ -116,6 +142,27 @@ export function createWorkshopScene() {
     const nodes = [];
     const st = design.stack;
     const objs = rocket.objects;
+    // Cargo items are packed into anything with storage slots (capsule, cargo module).
+    if (part.isItem) {
+      const a = analyzeDesign(design, parts);
+      if (a.slotsTotal - a.slotsUsed < part.slots) return nodes;
+      const toCam = Math.atan2(-camera.position.z, camera.position.x); // the side facing the camera
+      st.forEach((e, i) => {
+        const p = parts.get(e.part);
+        if (!p.slots) return;
+        const r = hullRadius(p) + 0.4;
+        nodes.push({
+          kind: 'cargo', r,
+          pos: new THREE.Vector3(Math.cos(toCam) * r, rocket.group.position.y + objs[i].position.y + p.height / 2, -Math.sin(toCam) * r),
+          apply: () => {
+            const have = design.cargo.find((c) => c.item === part.id);
+            if (have) have.count += 1;
+            else design.cargo.push({ item: part.id, count: 1 });
+          },
+        });
+      });
+      return nodes;
+    }
     // Internals go inside casings with room for them (thrust plates only into the bottom slot).
     if (part.category === 'internals') {
       st.forEach((e, i) => {
@@ -125,7 +172,8 @@ export function createWorkshopScene() {
         const used = inside.reduce((t, c) => t + parts.get(c.part).height, 0);
         const isPlate = part.role === 'thrust-plate';
         if (isPlate && inside[0] && parts.get(inside[0].part).role === 'thrust-plate') return;
-        if (used + part.height > p.interior.height + 1e-6) return;
+        // Leave free space at the top for the engines of the stage above to tuck into.
+        if (used + part.height + hangAbove(i) > p.interior.height + 1e-6) return;
         const y = rocket.group.position.y + objs[i].position.y + (isPlate ? 0 : used);
         nodes.push({
           kind: 'inside', r: (DIAMETER[p.interior.size] ?? 2.5) / 2 - 0.1, h: part.height,
@@ -203,6 +251,11 @@ export function createWorkshopScene() {
           const used = inside.reduce((t, c) => t + parts.get(c.part).height, 0);
           if (used + pp.height > p.interior.height + 1e-6) return; // no room for a plate
         }
+        // The set must fit into the free top of the part below (the bottom stage hangs into the stand).
+        if (i < st.length - 1) {
+          const set = { part: plateId, engines: { part: part.id, count: pp.engineCapacity } };
+          if (hangBelow({ inside: [set] }, parts) > roomBelow(design, i, parts) + 0.01) return;
+        }
         nodes.push({
           kind: 'engine', r: (DIAMETER[pp.size] ?? 2.5) / 2,
           pos: new THREE.Vector3(0, rocket.group.position.y + objs[i].position.y - 0.4, 0),
@@ -220,6 +273,13 @@ export function createWorkshopScene() {
   /** Plain-English reason a part has nowhere to attach, naming the adapter that would help. */
   const SIZE_NAME = { S: 'small (1.25 m)', M: 'medium (2.5 m)', L: 'large (3.75 m)' };
   const whyNoFit = (part) => {
+    if (part.isItem) {
+      if (!design.stack.some((e) => parts.get(e.part).slots)) return 'Cargo goes in the Crew Capsule or a Cargo Module. Add one first (Crew tab).';
+      return `No room for the ${part.name} (${part.slots} slot${part.slots > 1 ? 's' : ''}). The capsule has 4 slots and a Cargo Module adds 6. Right-click cargo in the list on the right to unpack it.`;
+    }
+    if (part.category === 'internals') {
+      return 'No room for that inside any casing. A casing under another stage must keep free space at the top for that stage\'s engines. Try a longer casing or a shorter tank.';
+    }
     if (part.radial) return design.stack.some((e) => isBody(parts.get(e.part)))
       ? `No free side slots for ${countFor(part)} × ${part.name}. Try ×1 or ×2, or remove a side part (right-click).`
       : 'Side parts go on straight-sided casings or modules, not on tapered parts like the capsule. Add one first.';
@@ -246,7 +306,9 @@ export function createWorkshopScene() {
   const ndc = new THREE.Vector2();
 
   const startDrag = (part, e) => {
-    const ghost = createPartMesh(part, null, parts);
+    const ghost = part.isItem
+      ? new THREE.Mesh(new THREE.BoxGeometry(0.5 + part.slots * 0.25, 0.6, 0.6).translate(0, 0.3, 0)) // a crate
+      : createPartMesh(part, null, parts);
     ghost.traverse((o) => { if (o.isMesh) o.material = ghostMat; });
     ghost.userData.height = part.height; // the crane hook hangs just above it
     // How wide the grabber must open: the top of a stack part, or a slim side part.
@@ -296,7 +358,7 @@ export function createWorkshopScene() {
     if (best?.kind === 'inside') {
       g.position.set(0, best.base, 0);
     } else if (best) {
-      g.position.copy(best.kind === 'radial' ? best.pos : new THREE.Vector3(0, best.pos.y, 0));
+      g.position.copy(best.kind === 'radial' || best.kind === 'cargo' ? best.pos : new THREE.Vector3(0, best.pos.y, 0));
       if (best.kind === 'radial') g.rotation.y = best.angle;
     } else {
       // Follow the cursor on a vertical plane through the rocket, facing the camera.
@@ -485,10 +547,14 @@ export function createWorkshopScene() {
       });
       ui.appendChild(bar);
 
-      hint = document.createElement('div');
-      hint.className = 'ws-hint';
-      hint.innerHTML = 'Drag a part from the left onto the glowing ring on the stand.<br><span class="muted">Tip: start with a tank and engines, or load the example rocket.</span>';
-      ui.appendChild(hint);
+      // Guidance: one short "next step" line, plus a ? button with the controls.
+      guide = document.createElement('div');
+      guide.className = 'ws-guide panel';
+      guide.innerHTML = `<div class="ws-guide-row"><span class="ws-guide-tag">NEXT</span><span class="ws-guide-text"></span>
+        <button class="ws-guide-help" title="How to build">?</button></div><div class="ws-guide-more">${HELP_HTML}</div>`;
+      guide.querySelector('.ws-guide-help').onclick = () => guide.classList.toggle('open');
+      ui.appendChild(guide);
+      refreshStats();
 
       tip = document.createElement('div');
       tip.className = 'ws-tip';
@@ -497,6 +563,14 @@ export function createWorkshopScene() {
       toastEl.className = 'ws-toast';
       ui.appendChild(toastEl);
 
+      statsEl.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-unpack]');
+        if (!b) return;
+        commit(() => {
+          const c = design.cargo.find((x) => x.item === b.dataset.unpack);
+          if (c && --c.count <= 0) design.cargo = design.cargo.filter((x) => x !== c);
+        });
+      });
       statsEl.addEventListener('change', (e) => {
         if (e.target.classList.contains('ws-approach')) {
           state.approach = e.target.value;

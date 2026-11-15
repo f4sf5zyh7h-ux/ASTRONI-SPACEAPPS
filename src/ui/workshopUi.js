@@ -1,5 +1,5 @@
 // Workshop HTML panels: parts catalogue (left), live stats + checklist (right).
-import { partList, parts, DIAMETER, isLocked } from '../data/catalog.js';
+import { partList, itemList, parts, DIAMETER, isLocked } from '../data/catalog.js';
 import { PART_INFO } from '../data/partInfo.js';
 import { partThumbnails } from '../render/thumbnails.js';
 import { tonnes, kms, kN, money } from './format.js';
@@ -11,7 +11,17 @@ const TABS = [
   ['engines', 'Engines'],
   ['structure', 'Structure'],
   ['systems', 'Systems'],
+  ['cargo', 'Cargo'],
 ];
+
+/** Cargo items: a picture (emoji) and why you'd pack it. */
+const ITEM_INFO = {
+  'replacement-panel': ['🛰️', 'The new solar panel for AURORA-7. The whole point of the mission: without it there is nothing to repair.'],
+  toolkit: ['🧰', 'Tools to unbolt the broken panel. Also frees a stuck bolt on the spacewalk.'],
+  tether: ['🪢', 'Safety rope for the Specialist. Without one, a slip means drifting away from the ship.'],
+  'spare-battery': ['🔋', 'Backup power if a solar flare or debris knocks out the ship\'s panels.'],
+  'spare-o2': ['💨', 'Extra oxygen: a longer spacewalk before the suit runs low.'],
+};
 
 /** Left panel. `onGrab(part, event)` starts a drag. */
 export function createCatalog(ui, onGrab) {
@@ -28,7 +38,11 @@ export function createCatalog(ui, onGrab) {
   const render = () => {
     el.innerHTML = `
       <div class="ws-tabs">${TABS.map(([id, label]) => `<button data-tab="${id}" class="${id === tab ? 'on' : ''}">${label}</button>`).join('')}</div>
-      <div class="ws-grid">${shown
+      <div class="ws-grid">${tab === 'cargo' ? itemList.map((it) => `<div class="ws-card ws-item" data-id="${it.id}">
+            <div class="ws-emoji">${ITEM_INFO[it.id]?.[0] ?? '📦'}</div>
+            <div class="ws-name">${it.name}</div>
+            <div class="ws-cost">${it.slots} slot${it.slots > 1 ? 's' : ''} · ${tonnes(it.mass, 2)}</div>
+          </div>`).join('') : ''}${shown
         .filter((p) => p.category === tab)
         .map((p) => {
           const locked = isLocked(p);
@@ -39,7 +53,7 @@ export function createCatalog(ui, onGrab) {
           </div>`;
         })
         .join('')}</div>
-      <div class="muted ws-help">Drag a part onto a glowing spot. Right-click a part to remove it.</div>`;
+      <div class="muted ws-help">${tab === 'cargo' ? 'Drag cargo onto the capsule or cargo module.' : 'Drag a part onto a glowing spot. Right-click a part to remove it.'}</div>`;
   };
   render();
 
@@ -69,6 +83,11 @@ export function createCatalog(ui, onGrab) {
 }
 
 function partDetails(p) {
+  if (p.isItem) {
+    return `<b>${p.name}</b><p>${ITEM_INFO[p.id]?.[1] ?? ''}</p>
+      <table><tr><td>Mass</td><td>${tonnes(p.mass, 2)}</td></tr><tr><td>Storage</td><td>${p.slots} slot${p.slots > 1 ? 's' : ''} (capsule 4, cargo module 6)</td></tr></table>
+      ${p.required ? '<p class="bad">Needed for the mission</p>' : ''}`;
+  }
   const rows = [];
   const size = p.radial ? 'Side-mounted'
     : p.category === 'internals' ? `Fits casings ${p.size} and up`
@@ -97,6 +116,9 @@ const CHECKS = [
   ['rcs', 'RCS thrusters', 'Needed to line up with the satellite (4 recommended).'],
   ['fins', 'Fins on the bottom stage (3+)', 'Without fins the rocket wobbles and wastes 5% of its launch Δv.'],
   ['liftoff', 'Liftoff thrust-to-weight ≥ 1.2', 'Engines must push harder than the rocket weighs, with margin, to clear the tower.'],
+  ['replacementPanel', 'New solar panel packed', 'Cargo tab: drag it into the capsule or cargo module.'],
+  ['toolkit', 'Toolkit packed', 'Cargo tab: needed to unbolt the broken panel.'],
+  ['tether', 'Safety tether packed', 'Cargo tab: keeps the Specialist attached on the spacewalk.'],
   ['cargoFits', 'Cargo fits in storage', 'The 800 kg panel needs 3 slots; the capsule has 4.'],
 ];
 
@@ -154,8 +176,49 @@ export function renderStats(el, { design, report, sim, need, mission, approach, 
     <div class="dv-bar ws-legs">${legBar}</div>
     ${verdict}
 
+    <h3>Cargo <span class="muted">· ${report.slotsUsed} / ${report.slotsTotal} slots</span></h3>
+    ${design.cargo?.length
+    ? `<ul class="ws-cargo">${design.cargo.map((c) => `<li>${ITEM_INFO[c.item]?.[0] ?? '📦'} ${parts.get(c.item).name}${c.count > 1 ? ` ×${c.count}` : ''} <button data-unpack="${c.item}" title="Unpack one">×</button></li>`).join('')}</ul>`
+    : '<p class="muted">Nothing packed. Use the Cargo tab.</p>'}
+
     <h3>Checklist</h3>
     <ul class="ws-checks">${CHECKS.map(([k, label, why]) => `<li class="${report.checks[k] ? 'good' : 'bad'}" title="${why}">${report.checks[k] ? '✔' : '✘'} ${label}</li>`).join('')}</ul>
     ${report.errors.length ? `<h3>Problems</h3><ul class="ws-errors">${report.errors.map((e) => `<li>${e}</li>`).join('')}</ul>` : ''}
     <p class="muted">Hover any item for an explanation.</p>`;
+}
+
+/** Controls and build order, shown under the guide's ? button. */
+export const HELP_HTML = `<ul>
+  <li><b>Drag</b> parts from the left onto the glowing spots. <b>Right-click</b> a part to remove it. <b>Ctrl+Z</b> undoes.</li>
+  <li><b>Left-drag</b> to look around, <b>scroll</b> to zoom. <b>X-ray</b> shows inside the casings.</li>
+  <li>Build from the bottom up: casing → fuel tank inside → engines under it → decoupler → upper stage → capsule on top.</li>
+  <li>Upper engines tuck into the casing below, so leave free space at its top.</li>
+  <li>Hover anything with <b>?</b> for an explanation. Stuck? Press <b>Example</b>.</li>
+</ul>`;
+
+/** One short "what to do next" line for the guide box, from the design's state. */
+export function guideText(design, report, sim) {
+  const st = design.stack;
+  if (!st.length) return 'Drag a <b>casing</b> (Casings tab) onto the stand. It is the body of your first stage.';
+  const empty = st.map((e) => ({ e, p: parts.get(e.part) }))
+    .find(({ e, p }) => p.interior && !(e.inside ?? []).some((c) => parts.get(c.part).propellant));
+  if (empty) return `Fill the <b>${empty.p.name}</b>: drag a fuel tank from the <b>Inside</b> tab into it.`;
+  if (!report) return 'Something is wrong with this design. Try <b>Undo</b>.';
+  if (report.sections.some((s) => s.unusable > 0)) return 'Some fuel has no engine to burn it. Drag an engine set (<b>Engines</b> tab) under that casing.';
+  if (report.stages.filter((s) => s.section.engines.length).length < 2) {
+    return 'One stage can\'t reach orbit. Add a <b>decoupler</b> on top, then a second casing with a tank and engines. Leave free space at the top of the lower casing for the upper engines.';
+  }
+  const c = report.checks;
+  if (!c.crewSeats) return 'Put the <b>Crew Capsule</b> on top (Crew tab), with a heat shield and decoupler under it.';
+  if (!c.heatShield) return 'Add a <b>heat shield</b> under the capsule, or it burns up coming home.';
+  if (!c.capsuleSeparates) return 'Put a <b>decoupler</b> under the heat shield so the capsule can come home on its own.';
+  if (!c.parachutes) return 'Add <b>parachutes</b> on top of the capsule for a soft landing.';
+  if (!c.liftoff) return 'Too heavy to lift off. Add <b>solid boosters</b> (Engines tab) on the bottom casing, or use less fuel.';
+  if (!c.fins) return 'Add <b>fins</b> (Structure tab) to the bottom casing so it flies straight.';
+  if (!c.rcs) return 'Add <b>RCS thrusters</b> (Systems tab) so you can line up with the satellite.';
+  if (!c.replacementPanel || !c.toolkit || !c.tether) return 'Pack the cargo: <b>Cargo</b> tab → drag the new solar panel, toolkit and a tether into the capsule or cargo module.';
+  if (!c.cargoFits) return 'Too much cargo. Add a <b>Cargo Module</b> (Crew tab) for more room, or unpack something.';
+  if (report.errors.length) return 'Fix the <b>problems</b> listed on the right.';
+  if (!sim?.success) return 'The mission check is red: read the reason on the right, then change the design.';
+  return 'Ready to fly! Press <b>Board rocket</b>.';
 }

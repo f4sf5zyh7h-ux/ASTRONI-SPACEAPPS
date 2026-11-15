@@ -406,3 +406,21 @@ kbd {
 .db-causes { list-style: none; padding: 0 !important; } .db-causes li { padding: 6px 10px; margin-bottom: 6px; background: rgba(255,255,255,.04); border-left: 3px solid var(--muted); }
 .db-causes li.main { border-left-color: var(--accent); background: rgba(79,195,247,.1); }
 .db-real { margin-top: 12px; font-size: 18px; color: #b9c8dd; } .db-unlock { margin-top: 10px; font: 11px/1.8 var(--pixel); color: #ffd54f; }
+
+/* Cargo cards + list */
+.ws-emoji { font-size: 44px; line-height: 1; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.ws-cargo { list-style: none; padding: 0; margin: 4px 0; font-size: 16px; line-height: 1.5; }
+.ws-cargo button { font-size: 10px; padding: 1px 6px; margin-left: 4px; }
+/* Guide: one "next step" line at the top, with a ? for the controls */
+.ws-guide { position: absolute; left: 50%; top: 52px; transform: translateX(-50%); width: min(560px, calc(100% - 660px)); min-width: 300px;
+  padding: 8px 10px; border-radius: 0; border-width: 2px; font-size: 17px; line-height: 1.2; }
+.ws-guide-row { display: flex; align-items: center; gap: 10px; }
+.ws-guide-tag { font: 9px var(--pixel); color: var(--accent); letter-spacing: .08em; flex: none; }
+.ws-guide-text { flex: 1; }
+.ws-guide-text b { color: var(--accent); font-weight: 400; }
+.ws-guide-help { flex: none; width: 26px; height: 26px; padding: 0; font-size: 11px; border-radius: 50%; }
+.ws-guide-more { display: none; margin-top: 8px; border-top: 1px solid rgba(255,255,255,.1); padding-top: 6px; }
+.ws-guide.open .ws-guide-more { display: block; }
+.ws-guide-more ul { margin: 0; padding-left: 18px; font-size: 16px; line-height: 1.3; }
+.ws-guide-more li { margin: 3px 0; }
+.ws-stats h3 .muted { font: inherit; color: var(--muted); }

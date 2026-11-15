@@ -25,7 +25,7 @@ export function openTop(entry, parts) {
  * Room for the engines of stack entry i to hang into: decoupler rings are hollow, so the engines
  * pass straight through them into the open top of the casing (or interstage) underneath.
  */
-function roomBelow(design, i, parts) {
+export function roomBelow(design, i, parts) {
   let room = 0;
   for (let k = i + 1; k < design.stack.length; k++) {
     const e = design.stack[k];
