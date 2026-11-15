@@ -127,7 +127,7 @@ export function createReturnScene() {
     if (fate === 'crash') causes.push('There were no parachutes. The capsule hit the sea at around 150 m/s instead of about 8 m/s.');
     if (!eva.repaired) causes.push('The solar panel was not fixed, so AURORA-7 stays on battery and its science ends.');
     else if (!eva.dataModule) causes.push('The data module was left behind, so none of the stored science came home.');
-    if (eva.outcome === 'o2') causes.push('The Specialist ran out of oxygen on the spacewalk. Pack spare O₂, a toolkit for stuck bolts, and a docking port to save effort.');
+    if (eva.outcome === 'o2') causes.push('The Specialist ran out of oxygen on the spacewalk. Pack spare O₂ and a toolkit for stuck bolts.');
     if (eva.outcome === 'drift') causes.push('With no tether, the Specialist drifted away from the ship. Always pack a tether for each spacewalker.');
     if (!causes.length) causes.push(`Clean mission. The rocket had ${Math.round(sim.spareDv)} m/s of Δv to spare. ${sim.spareDv > 400 ? 'You could save money with a smaller rocket.' : 'A well-sized rocket.'}`);
     if (success && !state.unlocked?.includes('robotic-arm')) state.unlocked = [...(state.unlocked ?? []), 'robotic-arm'];

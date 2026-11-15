@@ -147,6 +147,8 @@ function fitModelPad(scene, model, { armY, radiusAt }) {
   if (grass?.material) {
     grass.material = grass.material.clone();
     grass.material.color.set(0x6d7a45);
+    // Push the grass back in the depth buffer so the pad, road and scorch marks always win (no flicker).
+    Object.assign(grass.material, { polygonOffset: true, polygonOffsetFactor: 4, polygonOffsetUnits: 4 });
   }
   const fitTip = (tipName, seal, y) => {
     const tip = node(tipName);

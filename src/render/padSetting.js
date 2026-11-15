@@ -59,7 +59,7 @@ export function createPadSetting(scene) {
     land.add(m);
     return m;
   };
-  flat(new THREE.PlaneGeometry(80000, 80000), 0x6d7a45, 0, 0, -1.6); // layers spaced apart so they don't flicker from altitude
+  flat(new THREE.PlaneGeometry(80000, 80000), 0x6d7a45, 0, 0, -1.6, { polygonOffset: true, polygonOffsetFactor: 8, polygonOffsetUnits: 8 }); // layers spaced apart so they don't flicker from altitude
   flat(new THREE.PlaneGeometry(400, 80000), 0xd9c9a0, 2600, 0, -0.6);
   flat(new THREE.PlaneGeometry(40000, 80000), 0x2f6f9a, 22800, 0, -0.58, { roughness: 0.25, metalness: 0.1 });
   flat(new THREE.PlaneGeometry(18, 2400), 0x8a8a86, 0, -1260, -0.55); // continues the pad model's crawlerway

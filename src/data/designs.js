@@ -3,7 +3,6 @@
 /** Crew section + upper stage shared by the reference designs (top → bottom). */
 export function upperStack() {
   return [
-    { part: 'docking-port' },
     { part: 'parachutes' },
     { part: 'capsule-2' },
     { part: 'heat-shield' },
@@ -38,6 +37,7 @@ export function referenceDesign({ tanks = 4, engines = 9, fins = 4 } = {}) {
   }
   return {
     stack: [
+      { part: 'docking-port' }, // the §17 balance was set with one
       ...upperStack(),
       { part: 'decoupler-L' },
       ...firstStage,
@@ -55,7 +55,7 @@ export function referenceDesign({ tanks = 4, engines = 9, fins = 4 } = {}) {
 export function casingDesign({
   upperCasing = 'casing-l-long', upper = ['inner-tank-l-long', 'inner-tank-l-short'],
   firstN = 3, first = ['inner-tank-l-long', 'inner-tank-l-short'], booster = 'engine-booster', fins = 4,
-  upperEngine = 'engine-s', srbs = { part: 'srb', count: 4 }, // side boosters on the bottom casing, or null
+  upperEngine = 'engine-s', srbs = { part: 'srb', count: 2 }, // side boosters on the bottom casing, or null
   topUp = { part: 'casing-l-long', tanks: ['inner-tank-l-long', 'inner-tank-l-short'] }, // extra first-stage fuel, or null
 } = {}) {
   const crew = upperStack().filter((e) => !['tank-l', 'engine-mount-L'].includes(e.part));

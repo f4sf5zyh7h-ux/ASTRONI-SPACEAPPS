@@ -31,7 +31,6 @@ const CHECKS = [
   ['heatShield', 'Heat shield'],
   ['parachutes', 'Parachutes'],
   ['capsuleSeparates', 'Capsule separation'],
-  ['docking', 'Docking port'],
   ['rcs', 'RCS thrusters'],
   ['fins', 'Fins (3+)'],
   ['liftoff', 'Liftoff TWR ≥ 1.2'],

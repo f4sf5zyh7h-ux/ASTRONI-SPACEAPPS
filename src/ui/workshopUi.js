@@ -94,7 +94,6 @@ const CHECKS = [
   ['heatShield', 'Heat shield under the capsule', 'Without it the capsule burns up coming home.'],
   ['parachutes', 'Parachutes', 'Needed for a soft landing.'],
   ['capsuleSeparates', 'Capsule can separate', 'Put a decoupler below the heat shield so the capsule can leave the rocket to come home.'],
-  ['docking', 'Docking port', 'Lets you hold on to the satellite during the repair.'],
   ['rcs', 'RCS thrusters', 'Needed to line up with the satellite (4 recommended).'],
   ['fins', 'Fins on the bottom stage (3+)', 'Without fins the rocket wobbles and wastes 5% of its launch Δv.'],
   ['liftoff', 'Liftoff thrust-to-weight ≥ 1.2', 'Engines must push harder than the rocket weighs, with margin, to clear the tower.'],

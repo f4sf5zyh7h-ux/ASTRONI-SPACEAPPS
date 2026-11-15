@@ -367,3 +367,4 @@ Crew must return for a passing grade. Show the formula breakdown on the debrief 
 - RCS block: 50 kg dry + 150 kg monoprop. 4 blocks give enough for the 50 m/s rendezvous; 2 do not.
 - Engines and the engine mount allow a decoupler below them (an interstage wraps the engines).
 - `node scripts/balance.mjs '<overrides json>'` prints the balancing table; `npm test` locks the behaviour in.
+- **2026-11-15 changes:** side boosters default to a pair (×4 toggle → 2); fins sit in the slots between boosters (45° offset). Large SRB is GEM-63XL-class (representative): 2.5/2.7 MN, 48 t propellant. Docking port removed from the checklist and catalogue (the Specialist crosses on the tether); kept only in the legacy reference design so its §17 numbers hold. Example casing rocket: 2 SRBs, $221M, TWR 1.25, Standard +168 m/s, Fast fails.

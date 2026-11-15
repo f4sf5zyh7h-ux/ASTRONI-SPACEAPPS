@@ -23,12 +23,13 @@ export function createBoardingScene() {
   const design = state.design?.stack.some((e) => e.part === 'capsule-2') ? state.design : casingDesign();
   const scene = new THREE.Scene();
   scene.userData.envIntensity = 0.5;
-  const camera = new THREE.PerspectiveCamera(70, 1, 0.03, 20000);
+  const camera = new THREE.PerspectiveCamera(70, 1, 0.06, 20000);
   // Daytime at the pad: blue sky, coastal scrubland, ocean (padSetting.js).
   const setting = createPadSetting(scene);
 
   // ---- rocket on the launch table ----
   const rocket = buildRocket(design, parts);
+  rocket.group.traverse((o) => { if (o.name === 'wing') o.rotation.z = -Math.PI / 2; }); // solar panels stay folded until orbit
   const BASE = padBase();
   rocket.group.position.y = BASE;
   scene.add(rocket.group);

@@ -78,7 +78,9 @@ export function radialSlots(radial, parts) {
     const band = parts.get(g.part)?.role === 'fin' ? 'low' : 'mid';
     const step = Math.max(1, Math.floor(SLOTS / g.count));
     let found = null;
-    for (let o = 0; o < step && !found; o++) {
+    for (let i = 0; i < step && !found; i++) {
+      // Fins start one slot round, so they sit between side boosters rather than on top of them.
+      const o = band === 'low' ? (i + 1) % step : i;
       const s = Array.from({ length: g.count }, (_, k) => (o + k * step) % SLOTS);
       if (s.every((x) => !used[band].has(x)) && new Set(s).size === s.length) found = s;
     }
@@ -248,7 +250,6 @@ export function analyzeDesign(design, parts) {
     crewSeats: (crew?.seats ?? 0) >= 2,
     heatShield: !!crew?.roles.has('heat-shield'),
     parachutes: !!crew?.roles.has('parachutes'),
-    docking: all('docking'),
     rcs: all('rcs'),
     toolkit: has('toolkit'),
     replacementPanel: has('replacement-panel'),

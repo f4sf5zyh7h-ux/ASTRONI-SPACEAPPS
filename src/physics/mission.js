@@ -67,7 +67,16 @@ export function simulateMission(design, parts, mission, approachId) {
     return fail('launch', `Thrust-to-weight is ${first?.twr.toFixed(2) ?? 0} — the rocket needs at least 1.2 to climb away from the tower.`);
   }
   const launchNeed = need.launch * (report.checks.fins ? 1 : 1 + mission.finWobblePenalty);
-  if (!leg('launch', launchNeed, burn(launchNeed, true))) return fail('launch', 'Ran out of fuel before reaching orbit.');
+  const fuelledStages = report.stages.filter((s) => s.dv > 0).length;
+  if (!leg('launch', launchNeed, burn(launchNeed, true))) {
+    const got = (legs[legs.length - 1].delivered / 1000).toFixed(2);
+    const needKm = (launchNeed / 1000).toFixed(2);
+    // One stage carries all its empty tanks to orbit; more fuel adds mass too, so it soon stops helping.
+    const tip = fuelledStages < 2
+      ? ' A single stage can never get there: more fuel also means more weight to lift. Add a second stage on top (interstage + casing with its own engines).'
+      : ' Add fuel to the lower stage, or make the upper part of the rocket lighter.';
+    return fail('launch', `Ran out of fuel before reaching orbit: launch needs ${needKm} km/s, your rocket had ${got} km/s.${tip}`);
+  }
 
   // 2. Transfer up to the satellite's orbit.
   if (!leg('transfer', need.transfer, burn(need.transfer, false))) return fail('transfer', 'Ran out of fuel on the way up to AURORA-7.');

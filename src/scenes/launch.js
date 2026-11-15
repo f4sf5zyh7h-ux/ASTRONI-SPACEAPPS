@@ -19,7 +19,7 @@ import missionData from '../data/missions.json';
 // the rocket climbs in metres and a full-size Earth layer (km) is drawn behind it.
 
 const COUNTDOWN = 10; // seconds
-const ASCENT_TIME = 26; // seconds of screen time for the launch leg
+const ASCENT_TIME = 48; // seconds of screen time for the launch leg
 const PARKING_KM = 400;
 const TARGET_KM = 700;
 const ORBIT_KMS = 7.67; // circular speed at 400 km
@@ -110,6 +110,14 @@ export function createLaunchScene() {
   });
   const vacuumFlame = (k) => report.sections[k]?.vacuumOnly;
 
+  // Solar panels launch folded flat against the hull and open once in orbit.
+  const wings = [];
+  ship.traverse((o) => { if (o.name === 'wing') wings.push(o); });
+  const FOLDED = -Math.PI / 2; // wing hangs down along the hull
+  let deploy = 0; // 0 folded -> 1 open
+  const setWings = (k) => { for (const w of wings) w.rotation.z = FOLDED * (1 - ease(k)); };
+  setWings(0);
+
   // AURORA-7 for the arrival.
   const aurora = createAurora();
   aurora.group.visible = false;
@@ -126,6 +134,7 @@ export function createLaunchScene() {
   const groundCam = new THREE.Vector3(-22, 9, -95); // side-on: the tower (+X) stands clear to the right
   const camLook = new THREE.Vector3(0, 40, 0);
   const camOffset = new THREE.Vector3(45, 30, 85); // chase offset (smoothed)
+  const lookOffset = new THREE.Vector3(); // where the camera looks, relative to the ship
   let mapMode = false;
   let ui;
   let manager;
@@ -169,12 +178,49 @@ export function createLaunchScene() {
     say(`sep${k}`, 'Stage separation confirmed. Upper stage ignition.');
   };
 
-  const puff = () => {
-    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshLambertMaterial({ color: 0xd8d8d8, transparent: true, opacity: 0.55, depthWrite: false }));
-    m.position.set((Math.random() - 0.5) * 6, Math.max(1, BASE - 6), (Math.random() - 0.5) * 6);
-    m.userData = { v: new THREE.Vector3((Math.random() - 0.5) * 16, Math.random() * 4, (Math.random() - 0.5) * 16), age: 0 };
+  // Exhaust smoke: billowing clouds rolling out from the pad, plus a trail behind the climbing rocket.
+  const puffGeo = new THREE.IcosahedronGeometry(1, 1);
+  const puffMat = new THREE.MeshLambertMaterial({ color: 0xe6e3de, transparent: true, opacity: 0.6, depthWrite: false });
+  const MAX_SMOKE = 700;
+  const addPuff = (pos, v, size, life) => {
+    if (smoke.length >= MAX_SMOKE) {
+      const old = smoke.shift();
+      scene.remove(old);
+      old.material.dispose();
+    }
+    const m = new THREE.Mesh(puffGeo, puffMat.clone());
+    m.position.copy(pos);
+    m.rotation.set(Math.random() * 6, Math.random() * 6, 0);
+    m.userData = { v, age: 0, size, life };
     scene.add(m);
     smoke.push(m);
+  };
+  /** Ground cloud: pushed out sideways along the ground from the flame trench. */
+  const puff = () => {
+    const a = Math.random() * Math.PI * 2;
+    const sp = 10 + Math.random() * 22;
+    addPuff(
+      new THREE.Vector3((Math.random() - 0.5) * 6, 1.5 + Math.random() * 3, (Math.random() - 0.5) * 6),
+      new THREE.Vector3(Math.cos(a) * sp, 1 + Math.random() * 5, Math.sin(a) * sp),
+      3 + Math.random() * 3, 16,
+    );
+  };
+  /** Trail: left behind the rocket's tail, drifting slowly. */
+  // Puffs are laid along the path since the last frame, so the trail stays one solid column at speed.
+  let lastTail = null;
+  const trail = () => {
+    ship.updateMatrixWorld(true);
+    const tail = ship.localToWorld(new THREE.Vector3(0, bottoms[active] - 4, 0));
+    const from = lastTail ?? tail;
+    const n = Math.min(12, Math.max(1, Math.ceil(from.distanceTo(tail) / 4)));
+    const grow = 1 + Math.min(4, altKm / 2); // the column widens higher up, so it stays visible
+    for (let k = 1; k <= n; k++) {
+      const p = from.clone().lerp(tail, k / n);
+      p.x += (Math.random() - 0.5) * 3;
+      p.z += (Math.random() - 0.5) * 3;
+      addPuff(p, new THREE.Vector3((Math.random() - 0.5) * 3, -2 - Math.random() * 3, (Math.random() - 0.5) * 3), (3 + Math.random() * 2) * grow, 20);
+    }
+    lastTail = tail;
   };
 
   const endCard = (ok, title, body) => {
@@ -265,7 +311,7 @@ export function createLaunchScene() {
           const s = Math.min(1, (3 - left) / 1.5);
           flames[0].scale.set(1, 6 + s * 14, 1);
           flames[0].userData.light.intensity = 400 * s;
-          if (Math.random() < 0.7) puff();
+          for (let n = 0; n < 2; n++) puff();
         }
         if (left <= 0) {
           phase = report.checks.liftoff ? 'ascent' : 'stuck';
@@ -274,7 +320,7 @@ export function createLaunchScene() {
         }
       } else if (phase === 'stuck') {
         ship.position.x = (Math.random() - 0.5) * 0.15;
-        if (Math.random() < 0.8) puff();
+        for (let n = 0; n < 2; n++) puff();
         setHud({ clock: met(t), alt: '0 km', speed: '0 km/s', stage: `1 / ${engineStages}`, label: 'NO LIFTOFF' });
         if (t > 5) fail(`The rocket couldn't lift off: thrust-to-weight ${report.stages[0].twr.toFixed(2)}, needs at least 1.2.`);
       } else if (phase === 'ascent') {
@@ -283,8 +329,10 @@ export function createLaunchScene() {
         progress = Math.min(limit, (t / ASCENT_TIME) ** 1.5);
         const p = progress;
         altKm = PARKING_KM * p ** 2.2; // slow off the pad, fast at the end
-        ship.position.set(DOWNRANGE_KM * 1000 * p ** 2.2, BASE + altKm * 1000, 0);
-        ship.rotation.z = -1.3 * ease(Math.min(1, p * 1.3)); // pitch over towards orbit
+        // Straight up off the pad, then a slow gravity turn: downrange distance builds up late.
+        const turn = Math.max(0, (p - 0.12) / 0.88);
+        ship.position.set(DOWNRANGE_KM * 1000 * turn ** 3, BASE + altKm * 1000, 0);
+        ship.rotation.z = -1.3 * ease(Math.min(1, turn * 1.2)); // pitch over towards orbit
         for (const st of staging) if (p >= st.at && active <= st.k) separate(st.k);
         const f = flames[active];
         f.visible = true;
@@ -293,7 +341,8 @@ export function createLaunchScene() {
         const wide = vac ? 1.8 + p : 1 + p * 1.5;
         f.scale.set(wide, (vac ? 10 : 18) * (1 + p) * (0.9 + Math.random() * 0.2), wide);
         f.userData.outer.material.opacity = vac ? 0.3 : 0.55 - p * 0.25;
-        if (t < 5 && Math.random() < 0.7) puff();
+        if (t < 9) for (let n = 0; n < 3; n++) puff();
+        if (altKm < 12) trail();
         setHud({
           clock: met(t * 20), alt: `${Math.round(altKm)} km`, speed: `${(ORBIT_KMS * p).toFixed(2)} km/s`,
           stage: `${Math.min(engineStages, staging.filter((s) => s.k < active).length + 1)} / ${engineStages}`, label: 'ASCENT',
@@ -313,11 +362,14 @@ export function createLaunchScene() {
         altKm = PARKING_KM;
         ship.rotation.z += (-Math.PI / 2 - ship.rotation.z) * Math.min(1, dt); // level out
         const f = flames[active];
-        f.visible = t > 2 && t < 4.5;
+        deploy = Math.min(1, deploy + dt / 3);
+        setWings(deploy);
+        if (t > 0.5) say('panels', 'Solar arrays deploying.');
+        f.visible = t > 4 && t < 7;
         f.scale.set(2, 8, 2);
         setHud({ clock: met(540 + t * 60), alt: '400 km', speed: `${ORBIT_KMS.toFixed(2)} km/s`, stage: 'UPPER', label: 'TRANSFER BURN' });
-        if (t > 2) say('xfer', `Transfer burn, ${Math.round(need.transfer)} metres per second, ${approach.name}.`);
-        if (t > 5.5) {
+        if (t > 4) say('xfer', `Transfer burn, ${Math.round(need.transfer)} metres per second, ${approach.name}.`);
+        if (t > 8.5) {
           if (sim.failedAt === 'transfer') return fail('Ran out of fuel on the transfer burn.');
           phase = 'warp';
           t = 0;
@@ -326,7 +378,7 @@ export function createLaunchScene() {
         }
       } else if (phase === 'warp') {
         // Map view: pull out until the whole Earth fits, follow the transfer, zoom back in.
-        const W = 9; // seconds
+        const W = 13; // seconds
         const u = Math.min(1, t / W);
         const zoom = u < 0.3 ? ease(u / 0.3) : u > 0.75 ? 1 - ease((u - 0.75) / 0.25) : 1;
         const dist = PARKING_KM + (MAP_FAR_KM - PARKING_KM) * zoom;
@@ -349,11 +401,11 @@ export function createLaunchScene() {
         }
       } else if (phase === 'arrive') {
         altKm = TARGET_KM;
-        const u = ease(Math.min(1, t / 7));
+        const u = ease(Math.min(1, t / 10));
         aurora.group.position.lerpVectors(new THREE.Vector3(-260, 4, -40), new THREE.Vector3(-34, 2, -8), u);
         aurora.group.rotation.y += dt * 0.05;
         setHud({ clock: met(600 + approach.hours * 3600 + t * 60), alt: '700 km', speed: '7.50 km/s', stage: 'RCS', label: 'RENDEZVOUS' });
-        if (t > 7.5) {
+        if (t > 10.5) {
           phase = 'done';
           if (sim.failedAt === 'rendezvous') return fail('Not enough RCS fuel to line up with the satellite.');
           narrator.say('Holding position next to AURORA-7. Time to suit up.');
@@ -372,28 +424,39 @@ export function createLaunchScene() {
         d.obj.rotation.x += d.spin.x * dt;
         d.obj.rotation.z += d.spin.z * dt;
       }
-      for (const s of smoke) {
-        s.userData.age += dt;
-        s.position.addScaledVector(s.userData.v, dt);
-        s.scale.setScalar(1 + s.userData.age * 3);
-        s.material.opacity = Math.max(0, 0.5 - s.userData.age * 0.07);
+      for (let i = smoke.length - 1; i >= 0; i--) {
+        const s = smoke[i];
+        const u = s.userData;
+        u.age += dt;
+        u.v.multiplyScalar(1 - dt * 0.5); // air slows the cloud down
+        u.v.y += dt * 0.6; // warm smoke rises
+        s.position.addScaledVector(u.v, dt);
+        s.scale.setScalar(u.size * (1 + u.age * 0.9));
+        s.material.opacity = 0.6 * Math.max(0, 1 - u.age / u.life);
+        if (u.age > u.life) { scene.remove(s); s.material.dispose(); smoke.splice(i, 1); }
       }
 
       // Camera: from the ground at first, then locked behind and above the ship so Earth is in view.
       const centre = shipCentre();
-      if (phase === 'countdown' || phase === 'stuck' || (phase === 'ascent' && t < 4)) {
-        camLook.lerp(centre, Math.min(1, dt * 2));
-        const shake = flames[0].visible && altKm < 1 ? 0.25 : 0;
-        camera.position.copy(groundCam).add(new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(shake));
+      const GROUND_HOLD = 7; // seconds of ascent watched from the ground
+      const BLEND = 4; // seconds to swing from the ground view into the chase view
+      if (phase === 'countdown' || phase === 'stuck' || (phase === 'ascent' && t < GROUND_HOLD + BLEND)) {
+        const w = phase === 'ascent' ? ease(Math.min(1, Math.max(0, (t - GROUND_HOLD) / BLEND))) : 0;
+        if (w === 0) camLook.lerp(centre, Math.min(1, dt * 2));
+        else camLook.lerp(centre, Math.max(w, Math.min(1, dt * 2))); // locks on during the swing
+        const shake = flames[0].visible && altKm < 1 ? 0.25 * (1 - w) : 0;
+        const chase = centre.clone().add(camOffset);
+        camera.position.copy(groundCam).lerp(chase, w)
+          .add(new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(shake));
         camera.lookAt(camLook);
       } else {
         const close = phase === 'arrive' || phase === 'done';
         camOffset.lerp(close ? new THREE.Vector3(30, 16, 75) : new THREE.Vector3(45, 30, 85), Math.min(1, dt));
         camera.position.copy(centre).add(camOffset); // rigid: keeps up at orbital speed
-        const target = close ? centre.clone().lerp(aurora.group.position, 0.35) : centre;
-        // Snap if the target jumped far (first chase frame), otherwise ease.
-        if (camLook.distanceTo(target) > 200) camLook.copy(target);
-        else camLook.lerp(target, Math.min(1, dt * 3));
+        // Ease only an offset relative to the ship, so the view never lags behind the rocket.
+        const goal = close ? aurora.group.position.clone().sub(centre).multiplyScalar(0.35) : new THREE.Vector3();
+        lookOffset.lerp(goal, Math.min(1, dt * 2));
+        camLook.copy(centre).add(lookOffset);
         camera.lookAt(camLook);
       }
     },

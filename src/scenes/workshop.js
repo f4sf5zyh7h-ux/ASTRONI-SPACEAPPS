@@ -39,6 +39,8 @@ export function createWorkshopScene() {
   let design = state.design ? structuredClone(state.design) : { stack: [], cargo: standardCargo() };
   const history = [];
   let symmetry = 4;
+  /** Side boosters come in pairs by default (×4 would be four huge boosters); everything else follows the toggle. */
+  const countFor = (part) => (part.fuel === 'solid' && symmetry === 4 ? 2 : symmetry);
   let rocket = null;
   let statsEl;
   let hint;
@@ -137,7 +139,7 @@ export function createWorkshopScene() {
         const p = parts.get(e.part);
         if (!isBody(p)) return;
         // Only where the side slots are still free (no overlapping side parts).
-        const groups = [...(e.radial ?? []), { part: part.id, count: symmetry }];
+        const groups = [...(e.radial ?? []), { part: part.id, count: countFor(part) }];
         const layout = radialSlots(groups, parts);
         if (!layout) return;
         const r = hullRadius(p);
@@ -218,7 +220,7 @@ export function createWorkshopScene() {
   const SIZE_NAME = { S: 'small (1.25 m)', M: 'medium (2.5 m)', L: 'large (3.75 m)' };
   const whyNoFit = (part) => {
     if (part.radial) return design.stack.some((e) => isBody(parts.get(e.part)))
-      ? `No free side slots for ${symmetry} × ${part.name}. Try ×1 or ×2, or remove a side part (right-click).`
+      ? `No free side slots for ${countFor(part)} × ${part.name}. Try ×1 or ×2, or remove a side part (right-click).`
       : 'Side parts go on casings or modules. Add one first.';
     if (part.category === 'engines') return design.stack.some((e) => parts.get(e.part).interior)
       ? `Engines go under a casing as a full set (S casing 1, M 3, L 5). Every casing already has engines, or the ${part.name} is too big for it, or the casing is too full for a thrust plate.`

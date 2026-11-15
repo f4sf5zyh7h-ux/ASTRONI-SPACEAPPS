@@ -28,7 +28,7 @@ export function createEvaScene() {
   const design = state.design?.stack.some((e) => e.part === 'capsule-2') ? state.design : casingDesign();
   const tether = has(design, 'tether');
   const toolkit = has(design, 'toolkit');
-  const docked = hasPart(design, 'docking-port');
+  const docked = true; // no docking port needed: the Specialist flies across on the tether
   const o2Total = O2_SECONDS * (has(design, 'spare-o2') ? 1.35 : 1);
   const o2Rate = docked ? 1 : 1.3; // without a docking port the ship drifts and you work harder
 
